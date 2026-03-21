@@ -70,6 +70,40 @@ output/
 【等待用户确认】→ 网页点击「生成 EDL」→ 得到 `视频名_cut.edl`
 ```
 
+## 继续剪辑
+
+如果用户说“继续剪这个口播”“继续审核”“上次剪到一半接着来”，默认走恢复模式，不要重跑转录和分析。
+
+### 恢复规则
+
+1. 优先复用已有的 `output/YYYY-MM-DD_视频名/剪口播/` 目录
+2. 只要以下文件存在，就直接进入审核阶段
+   - `1_转录/subtitles_words.json`
+   - `1_转录/audio.mp3`
+   - `2_分析/auto_selected.json`
+3. `3_审核/selected.json` 如果存在，网页会自动恢复上次的勾选状态
+4. 仅在 `review.html` 缺失，或字幕/预选结果更新后，才重新生成审核页
+5. 不要重复做这些步骤
+   - 提取音频
+   - 上传公网 URL
+   - 火山引擎转录
+   - 生成 `subtitles_words.json`
+   - AI 分析并生成 `auto_selected.json`
+
+### 恢复命令
+
+```bash
+SKILL_DIR="/Users/xiaoshan/.claude/skills/剪口播"
+node "$SKILL_DIR/scripts/launch_review.js" "$VIDEO_PATH" 8899
+```
+
+也支持直接传审核目录或 `剪口播/` 基目录：
+
+```bash
+node "$SKILL_DIR/scripts/launch_review.js" "/path/to/output/2026-03-21_视频名/剪口播/3_审核" 8899
+node "$SKILL_DIR/scripts/launch_review.js" "/path/to/output/2026-03-21_视频名/剪口播" 8899
+```
+
 ## 执行步骤
 
 ### 步骤 0: 创建输出目录
@@ -257,12 +291,8 @@ readable.txt 格式: idx|内容|时间
 ```bash
 cd ../3_审核
 
-# 6. 生成审核网页
-node "$SKILL_DIR/scripts/generate_review.js" ../1_转录/subtitles_words.json ../2_分析/auto_selected.json ../1_转录/audio.mp3
-# 输出: review.html
-
-# 7. 启动审核服务器（必须在 3_审核/ 目录下启动，EDL 文件将生成在此处）
-node "$SKILL_DIR/scripts/review_server.js" 8899 "$VIDEO_PATH"
+# 6-7. 生成/复用审核网页，并启动审核服务器
+node "$SKILL_DIR/scripts/launch_review.js" "$VIDEO_PATH" 8899
 # 打开 http://localhost:8899
 ```
 
