@@ -56,6 +56,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
   let sidebarCollapsedDesktop = false;
   let sidebarOpenMobile = false;
+  const expandedGapGroups = new Set();
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -164,6 +165,33 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     document.documentElement.style.setProperty('--controls-offset', `${height}px`);
   }
 
+  function positionExpandedGapButtons() {
+    if (!content) return;
+
+    const contentRect = content.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const expandedGroups = content.querySelectorAll('.gap-group.expanded');
+
+    expandedGroups.forEach((group) => {
+      const button = group.querySelector('.gap-group-collapse');
+      if (!button) return;
+
+      const groupRect = group.getBoundingClientRect();
+      const firstWord = group.querySelector('.word');
+      const anchorRect = firstWord ? firstWord.getBoundingClientRect() : groupRect;
+      const buttonWidth = Math.ceil(button.getBoundingClientRect().width) || 44;
+      const leftCandidate = contentRect.left - buttonWidth - 12;
+      const rightCandidate = contentRect.right + 12;
+      const canPlaceRight = rightCandidate + buttonWidth <= viewportWidth - 8;
+      const x = leftCandidate >= 8 || !canPlaceRight
+        ? Math.max(8, leftCandidate)
+        : rightCandidate;
+
+      button.style.left = `${Math.round(x)}px`;
+      button.style.top = `${Math.round(anchorRect.top + anchorRect.height / 2)}px`;
+    });
+  }
+
   // 侧边栏展开/收起
   function toggleSidebar(forceOpen) {
     if (mobileQuery.matches) {
@@ -174,77 +202,195 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     syncSidebarUI();
   }
 
+  function getGapGroupKey(start, end) {
+    return `${start}-${end}`;
+  }
+
+  function findSelectedGapGroup(index) {
+    const word = words[index];
+    if (!word || !word.isGap || !selected.has(index)) return null;
+
+    let start = index;
+    let end = index;
+
+    while (start > 0 && words[start - 1].isGap && selected.has(start - 1)) {
+      start--;
+    }
+    while (end < words.length - 1 && words[end + 1].isGap && selected.has(end + 1)) {
+      end++;
+    }
+
+    return { start, end, key: getGapGroupKey(start, end), length: end - start + 1 };
+  }
+
+  function getCollapsibleGapGroupAt(index) {
+    const group = findSelectedGapGroup(index);
+    if (!group || group.start !== index || group.length <= 3) return null;
+    return group;
+  }
+
+  function createWordElement(i) {
+    const word = words[i];
+    const span = document.createElement('span');
+    span.className = 'word';
+    span.dataset.index = i;
+    const isWhitespaceToken = !word.isGap && /^\s+$/.test(word.text || '');
+
+    if (word.isGap) {
+      span.classList.add('gap');
+      span.textContent = `[${(word.end - word.start).toFixed(1)}s]`;
+    } else {
+      span.textContent = isWhitespaceToken ? '' : word.text;
+    }
+
+    if (isWhitespaceToken) {
+      span.classList.add('whitespace-token');
+    }
+
+    if (autoSelected.has(i)) {
+      span.classList.add('auto-selected');
+    }
+    if (selected.has(i)) {
+      span.classList.add('selected');
+    }
+
+    // 单击跳转播放（延迟执行，若被双击取消则不执行）
+    span.onclick = () => {
+      if (isSelecting) return;
+      if (pendingClickTimer) return;
+      pendingClickTimer = setTimeout(() => {
+        pendingClickTimer = null;
+        wavesurfer.setTime(word.start);
+      }, 250);
+    };
+
+    // 双击选中/取消（立即执行，并取消待处理的单击）
+    span.ondblclick = (e) => {
+      e.preventDefault();
+      if (pendingClickTimer) {
+        clearTimeout(pendingClickTimer);
+        pendingClickTimer = null;
+      }
+      toggle(i);
+    };
+
+    // Shift+拖动选择/取消
+    span.onmousedown = (e) => {
+      if (e.shiftKey) {
+        isSelecting = true;
+        selectStart = i;
+        selectMode = selected.has(i) ? 'remove' : 'add';
+        e.preventDefault();
+      }
+    };
+
+    elements[i] = span;
+    return span;
+  }
+
+  function createCollapsedGapPlaceholder(group) {
+    const hiddenDuration = words
+      .slice(group.start + 1, group.end)
+      .reduce((sum, word) => sum + (word.end - word.start), 0);
+    const hiddenIndexes = Array.from(
+      { length: Math.max(0, group.end - group.start - 1) },
+      (_, offset) => group.start + 1 + offset
+    );
+    const isAutoSelectedGroup = hiddenIndexes.length > 0 && hiddenIndexes.every(index => autoSelected.has(index));
+
+    const placeholder = document.createElement('span');
+    placeholder.className = 'word gap gap-collapsed-toggle selected selected-start selected-end';
+    if (isAutoSelectedGroup) {
+      placeholder.classList.add('auto-selected');
+    }
+    placeholder.textContent = `...[${hiddenDuration.toFixed(1)}s]`;
+    placeholder.title = '点击展开中间静音片段';
+    placeholder.onclick = (e) => {
+      e.stopPropagation();
+      expandedGapGroups.add(group.key);
+      render();
+    };
+    return placeholder;
+  }
+
+  function createGapGroupContainer(group) {
+    const container = document.createElement('span');
+    container.className = 'gap-group';
+    container.dataset.groupKey = group.key;
+
+    const collapseButton = document.createElement('button');
+    collapseButton.type = 'button';
+    collapseButton.className = 'gap-group-collapse btn-tooltip';
+    collapseButton.dataset.tooltip = '折叠连续静音片段';
+    collapseButton.innerHTML = `
+      <span class="gap-group-collapse-label">折叠</span>
+      <svg class="gap-group-collapse-icon" width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 2.5V7.5M10 7.5L12.5 5M10 7.5L7.5 5M10 17.5V12.5M10 12.5L12.5 15M10 12.5L7.5 15M3.33333 10H4.16667M7.5 10H8.33333M11.6667 10H12.5M15.8333 10H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+    collapseButton.onmouseenter = () => {
+      container.classList.add('button-hover');
+    };
+    collapseButton.onmouseleave = () => {
+      container.classList.remove('button-hover');
+    };
+    collapseButton.onfocus = () => {
+      container.classList.add('button-hover');
+    };
+    collapseButton.onblur = () => {
+      container.classList.remove('button-hover');
+    };
+    collapseButton.onclick = (e) => {
+      e.stopPropagation();
+      expandedGapGroups.delete(group.key);
+      render();
+    };
+
+    container.appendChild(collapseButton);
+    return container;
+  }
+
   // 渲染内容
   function render() {
     content.innerHTML = '';
-    elements = [];
+    elements = new Array(words.length).fill(null);
 
-    words.forEach((word, i) => {
-      const span = document.createElement('span');
-      span.className = 'word';
-      span.dataset.index = i;
-      const isWhitespaceToken = !word.isGap && /^\s+$/.test(word.text || '');
+    for (let i = 0; i < words.length; i++) {
+      const group = getCollapsibleGapGroupAt(i);
+      if (group) {
+        const isExpanded = expandedGapGroups.has(group.key);
+        const container = createGapGroupContainer(group);
 
-      if (word.isGap) {
-        span.classList.add('gap');
-        span.textContent = `[${(word.end - word.start).toFixed(1)}s]`;
-      } else {
-        span.textContent = isWhitespaceToken ? '' : word.text;
-      }
-
-      if (isWhitespaceToken) {
-        span.classList.add('whitespace-token');
-      }
-
-      if (autoSelected.has(i)) {
-        span.classList.add('auto-selected');
-      }
-      if (selected.has(i)) {
-        span.classList.add('selected');
-      }
-
-      // 单击跳转播放（延迟执行，若被双击取消则不执行）
-      span.onclick = (e) => {
-        if (isSelecting) return;
-        if (pendingClickTimer) return; // 已有待执行的单击，忽略
-        pendingClickTimer = setTimeout(() => {
-          pendingClickTimer = null;
-          wavesurfer.setTime(word.start);
-        }, 250);
-      };
-
-      // 双击选中/取消（立即执行，并取消待处理的单击）
-      span.ondblclick = (e) => {
-        e.preventDefault();
-        if (pendingClickTimer) {
-          clearTimeout(pendingClickTimer);
-          pendingClickTimer = null;
+        if (isExpanded) {
+          container.classList.add('expanded');
+          for (let j = group.start; j <= group.end; j++) {
+            container.appendChild(createWordElement(j));
+          }
+        } else {
+          container.classList.add('collapsed');
+          container.appendChild(createWordElement(group.start));
+          container.appendChild(createCollapsedGapPlaceholder(group));
+          container.appendChild(createWordElement(group.end));
         }
-        toggle(i);
-      };
 
-      // Shift+拖动选择/取消
-      span.onmousedown = (e) => {
-        if (e.shiftKey) {
-          isSelecting = true;
-          selectStart = i;
-          selectMode = selected.has(i) ? 'remove' : 'add';
-          e.preventDefault();
-        }
-      };
+        content.appendChild(container);
+        i = group.end;
+        continue;
+      }
 
-      content.appendChild(span);
-      elements.push(span);
-    });
+      content.appendChild(createWordElement(i));
+    }
 
     // 计算连续选中状态，添加 selected-start/selected-end 类
     updateSelectedBorderRadius();
     updateStats();
+    requestAnimationFrame(positionExpandedGapButtons);
   }
 
   // 更新选中片段的圆角（让连续选中看起来连在一起）
   function updateSelectedBorderRadius() {
     elements.forEach((el, i) => {
+      if (!el) return;
       el.classList.remove('selected-start', 'selected-end');
       if (!selected.has(i)) return;
 
@@ -267,15 +413,17 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 切换选中状态
   function toggle(i) {
+    const group = findSelectedGapGroup(i);
     if (selected.has(i)) {
       selected.delete(i);
-      elements[i].classList.remove('selected');
     } else {
       selected.add(i);
-      elements[i].classList.add('selected');
     }
-    updateSelectedBorderRadius();
-    updateStats();
+
+    if (group) {
+      expandedGapGroups.delete(group.key);
+    }
+    render();
   }
 
   // 更新统计
@@ -360,6 +508,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   wavesurfer.on('interaction', (t) => {
     // 高亮当前词
     elements.forEach((el, i) => {
+      if (!el) return;
       const word = words[i];
       if (t >= word.start && t < word.end) {
         if (!el.classList.contains('current')) {
@@ -399,11 +548,14 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   }
 
   window.addEventListener('resize', updateControlsOffset);
+  window.addEventListener('resize', positionExpandedGapButtons);
+  window.addEventListener('scroll', positionExpandedGapButtons, { passive: true });
   mobileQuery.addEventListener('change', () => {
     if (!mobileQuery.matches) {
       sidebarOpenMobile = false;
     }
     syncSidebarUI();
+    requestAnimationFrame(positionExpandedGapButtons);
   });
 
   // 播放时间更新 - 跳过选中片段 + 高亮当前词
@@ -439,6 +591,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
     // 高亮当前词
     elements.forEach((el, i) => {
+      if (!el) return;
       const word = words[i];
       if (t >= word.start && t < word.end) {
         if (!el.classList.contains('current')) {
@@ -464,10 +617,10 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     for (let j = min; j <= max; j++) {
       if (selectMode === 'add') {
         selected.add(j);
-        elements[j].classList.add('selected');
+        if (elements[j]) elements[j].classList.add('selected');
       } else {
         selected.delete(j);
-        elements[j].classList.remove('selected');
+        if (elements[j]) elements[j].classList.remove('selected');
       }
     }
     updateSelectedBorderRadius();
@@ -476,7 +629,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 鼠标释放结束选择
   content.addEventListener('mouseup', () => {
+    if (!isSelecting) return;
     isSelecting = false;
+    render();
   });
 
   // 生成 EDL

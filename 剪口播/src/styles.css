@@ -397,6 +397,82 @@ body.sidebar-open-mobile {
   background: var(--bg-tertiary);
 }
 
+.gap-group {
+  position: relative;
+  display: inline;
+}
+
+.gap-group-collapse {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--stone-500);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  cursor: pointer;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gap-group.expanded .gap-group-collapse,
+.gap-group.expanded:focus-within .gap-group-collapse {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+
+.gap-group-collapse:hover,
+.gap-group-collapse:focus-visible {
+  background: var(--stone-200);
+  color: var(--stone-700);
+}
+
+.gap-group-collapse-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.gap-collapsed-toggle {
+  cursor: pointer;
+  color: var(--stone-400);
+  border: 0;
+  border-radius: 0 !important;
+  background: var(--stone-200);
+  text-decoration: line-through;
+}
+
+.gap-collapsed-toggle:hover {
+  color: var(--stone-500);
+  background: var(--stone-300);
+}
+
+.gap-collapsed-toggle.auto-selected::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--auto-selected);
+  pointer-events: none;
+}
+
+.gap-collapsed-toggle.selected-start,
+.gap-collapsed-toggle.selected-end,
+.gap-collapsed-toggle.selected-start.selected-end {
+  border-radius: 0 !important;
+}
+
 /* 选中删除（手动选中） */
 .word:not(.auto-selected).selected {
   background: var(--stone-200);
@@ -404,6 +480,16 @@ body.sidebar-open-mobile {
   text-decoration: line-through;
 }
 .word:not(.auto-selected).selected:hover {
+  background: var(--stone-300);
+  color: var(--stone-500);
+}
+
+.word.auto-selected.selected:hover {
+  background: var(--stone-300);
+  color: var(--stone-500);
+}
+
+.gap-group.button-hover .word.selected {
   background: var(--stone-300);
   color: var(--stone-500);
 }
@@ -722,9 +808,13 @@ body.sidebar-open-mobile {
   }
 }
 .content .word {
-  font-size: 17px;
+  font-size: 18px;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.content .word.gap {
+  font-size: 14px;
 }
 
 @media (max-width: 1080px) {
