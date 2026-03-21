@@ -214,23 +214,40 @@ ${cssContent.split('\n').map(line => '    ' + line).join('\n')}
         </div>
       </div>
       <div class="player">
-        <button class="btn-secondary" onclick="wavesurfer.playPause()" style="height:36px;padding:8px 14px;">
-          <span class="btn-icon" style="width:16px;height:16px;">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 2L14 8L4 14V2Z" fill="currentColor"/>
-            </svg>
-          </span>
-        </button>
-        <select id="speed" onchange="wavesurfer.setPlaybackRate(parseFloat(this.value))">
-          <option value="0.5">0.5x</option>
-          <option value="0.75">0.75x</option>
-          <option value="1" selected>1x</option>
-          <option value="1.25">1.25x</option>
-          <option value="1.5">1.5x</option>
-          <option value="2">2x</option>
-        </select>
-        <span id="time">00:00 / 00:00</span>
-        <div id="waveform"></div>
+        <div class="player-top">
+          <p class="player-title" id="playerTitle">计算中...</p>
+          <div class="player-controls">
+            <div class="speed-select" id="speedSelect">
+              <select id="speed" onchange="wavesurfer.setPlaybackRate(parseFloat(this.value))">
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+              <span class="speed-chevron">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
+            <div class="play-controls">
+              <button class="play-btn-main" onclick="wavesurfer.playPause()" id="playPauseBtn">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" id="playIcon">
+                  <path d="M4 2L14 8L4 14V2Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="player-progress">
+          <div id="waveform"></div>
+          <div class="time-display">
+            <span id="currentTime">00:00</span>
+            <span id="totalTime">/ 00:00</span>
+          </div>
+        </div>
       </div>
     </div>
 

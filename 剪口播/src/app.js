@@ -28,23 +28,26 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   // 初始化 wavesurfer
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
-    waveColor: '#5a9fd4',
-    progressColor: '#3a7bc8',
-    cursorColor: '#1a1a2e',
-    height: 80,
+    waveColor: '#d6d3d1',
+    progressColor: '#78716C',
+    cursorColor: '#4D7C0F',
+    height: 40,
     barWidth: 2,
     barGap: 1,
     barRadius: 2,
+    normalize: true,
     url: audioFile || 'audio.mp3'
   });
 
-  const timeDisplay = document.getElementById('time');
+  const currentTimeEl = document.getElementById('currentTime');
+  const totalTimeEl = document.getElementById('totalTime');
   const content = document.getElementById('content');
   const statsDiv = document.getElementById('stats');
   let elements = [];
   let isSelecting = false;
   let selectStart = -1;
   let selectMode = 'add'; // 'add' or 'remove'
+  let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -76,6 +79,50 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       return `${m}分${s}秒 (${totalSec}s)`;
     }
     return `${s}秒`;
+  }
+
+  // 更新播放器标题（成品时长和删除百分比）
+  function updatePlayerTitle(currentTime, totalDuration) {
+    const playerTitle = document.getElementById('playerTitle');
+    if (!playerTitle || !totalDuration) return;
+
+    // 计算已删除的时长（基于选中片段）
+    let deletedDuration = 0;
+    const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+    for (const i of sortedSelected) {
+      const w = words[i];
+      if (w && w.end > w.start) {
+        deletedDuration += (w.end - w.start);
+      }
+    }
+
+    const keptDuration = totalDuration - deletedDuration;
+    const savedPercent = totalDuration > 0 ? Math.round((keptDuration / totalDuration) * 100) : 0;
+    const deletedPercent = 100 - savedPercent;
+
+    // 格式化成品时长
+    const keptM = Math.floor(keptDuration / 60);
+    const keptS = (keptDuration % 60).toFixed(1);
+    const keptTimeStr = keptM > 0 ? `${keptM}分${keptS}秒` : `${keptS}秒`;
+
+    playerTitle.textContent = `成品时长 ${keptTimeStr}，已删除${deletedPercent}%`;
+  }
+
+  // 更新播放/暂停图标
+  function updatePlayPauseIcon(isPlaying) {
+    const playIcon = document.getElementById('playIcon');
+    if (!playIcon) return;
+
+    if (isPlaying) {
+      // 暂停图标（两条竖线）
+      playIcon.innerHTML = `
+        <rect x="4" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+        <rect x="9" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+      `;
+    } else {
+      // 播放图标（三角形）
+      playIcon.innerHTML = `<path d="M4 2L14 8L4 14V2Z" fill="currentColor"/>`;
+    }
   }
 
   // 侧边栏展开/收起
@@ -111,15 +158,25 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
         span.classList.add('auto-selected');
       }
 
-      // 单击跳转播放
+      // 单击跳转播放（延迟执行，若被双击取消则不执行）
       span.onclick = (e) => {
-        if (!isSelecting) {
+        if (isSelecting) return;
+        if (pendingClickTimer) return; // 已有待执行的单击，忽略
+        pendingClickTimer = setTimeout(() => {
+          pendingClickTimer = null;
           wavesurfer.setTime(word.start);
-        }
+        }, 250);
       };
 
-      // 双击选中/取消
-      span.ondblclick = () => toggle(i);
+      // 双击选中/取消（立即执行，并取消待处理的单击）
+      span.ondblclick = (e) => {
+        e.preventDefault();
+        if (pendingClickTimer) {
+          clearTimeout(pendingClickTimer);
+          pendingClickTimer = null;
+        }
+        toggle(i);
+      };
 
       // Shift+拖动选择/取消
       span.onmousedown = (e) => {
@@ -245,7 +302,33 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   // wavesurfer 就绪
   wavesurfer.on('ready', () => {
     render();
-    timeDisplay.textContent = formatTime(0) + ' / ' + formatTime(wavesurfer.getDuration());
+    const duration = wavesurfer.getDuration();
+    currentTimeEl.textContent = formatTime(0);
+    totalTimeEl.textContent = formatTime(duration);
+    updatePlayerTitle(0, duration);
+    updatePlayPauseIcon(false);
+  });
+
+  // wavesurfer 播放/暂停状态变化
+  wavesurfer.on('play', () => updatePlayPauseIcon(true));
+  wavesurfer.on('pause', () => updatePlayPauseIcon(false));
+
+  // wavesurfer 点击波形图跳转
+  wavesurfer.on('interaction', (t) => {
+    // 高亮当前词
+    elements.forEach((el, i) => {
+      const word = words[i];
+      if (t >= word.start && t < word.end) {
+        if (!el.classList.contains('current')) {
+          el.classList.add('current');
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        el.classList.remove('current');
+      }
+    });
+    currentTimeEl.textContent = formatTime(t);
+    updatePlayerTitle(t, wavesurfer.getDuration());
   });
 
   // wavesurfer 错误处理
@@ -253,7 +336,8 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     console.error('wavesurfer error:', err);
     // 音频加载失败时也渲染文字内容
     render();
-    timeDisplay.textContent = '音频加载失败，仍可查看文字';
+    currentTimeEl.textContent = '--:--';
+    totalTimeEl.textContent = '--:--';
   });
 
   // 备用：DOM 就绪后也尝试渲染（防止 wavesurfer 事件不触发）
@@ -290,7 +374,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       }
     }
 
-    timeDisplay.textContent = `${formatTime(t)} / ${formatTime(wavesurfer.getDuration())}`;
+    currentTimeEl.textContent = formatTime(t);
+    totalTimeEl.textContent = formatTime(wavesurfer.getDuration());
+    updatePlayerTitle(t, wavesurfer.getDuration());
 
     // 高亮当前词
     elements.forEach((el, i) => {
@@ -469,4 +555,5 @@ ${shouldClose ? '（服务器已关闭）' : ''}`);
   window.clearAll = clearAll;
   window.executeCut = executeCut;
   window.executeSmartCut = executeSmartCut;
+  window.wavesurfer = wavesurfer;
 }
