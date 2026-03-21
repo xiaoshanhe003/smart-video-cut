@@ -122,47 +122,152 @@ ${cssContent.split('\n').map(line => '    ' + line).join('\n')}
     <div class="loading-text">📄 正在生成 EDL...</div>
   </div>
 
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
   <!-- 左侧侧边栏 -->
   <div class="sidebar" id="sidebar">
-    <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
-
-    <div class="sidebar-section">
-      <h3>🖱️ 鼠标操作</h3>
-      <div>
-        <span class="key">单击</span> 跳转播放<br>
-        <span class="key">双击</span> 选中/取消<br>
-        <span class="key">Shift+拖动</span> 批量选择
-      </div>
+    <div class="sidebar-header">
+      <button
+        class="sidebar-toggle"
+        id="sidebarToggle"
+        type="button"
+        onclick="toggleSidebar()"
+        aria-label="收起侧边栏"
+      >
+        <svg class="sidebar-toggle-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M7.5 3.33333V16.6667M3.33334 5C3.33334 4.55797 3.50893 4.13405 3.82149 3.82149C4.13405 3.50893 4.55798 3.33333 5 3.33333H15C15.442 3.33333 15.866 3.50893 16.1785 3.82149C16.4911 4.13405 16.6667 4.55797 16.6667 5V15C16.6667 15.442 16.4911 15.8659 16.1785 16.1785C15.866 16.4911 15.442 16.6667 15 16.6667H5C4.55798 16.6667 4.13405 16.4911 3.82149 16.1785C3.50893 15.8659 3.33334 15.442 3.33334 15V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
 
-    <div class="sidebar-section">
-      <h3>⌨️ 键盘快捷键</h3>
-      <div>
-        <span class="key">空格</span> 播放/暂停<br>
-        <span class="key">← →</span> 跳转1秒<br>
-        <span class="key">Shift+←→</span> 跳转5秒
+    <div class="sidebar-content">
+      <div class="sidebar-group">
+        <p class="sidebar-group-title">颜色说明</p>
+        <div class="sidebar-list">
+          <div class="sidebar-row">
+            <span class="sidebar-label">AI预选（建议删除）</span>
+            <span class="legend-swatch legend-swatch-auto" aria-hidden="true"></span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">标记删除</span>
+            <span class="legend-swatch legend-swatch-selected" aria-hidden="true"></span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">当前播放</span>
+            <span class="legend-swatch legend-swatch-current" aria-hidden="true"></span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="sidebar-section">
-      <h3>🎨 颜色说明</h3>
-      <div>
-        <span style="color:#ff9800">■</span> AI预选（建议删除）<br>
-        <span style="color:#f44336">■</span> 标记删除<br>
-        <span style="color:#3498db">■</span> 当前播放<br>
-        <span style="color:#888">■</span> 静音片段
+      <div class="sidebar-group">
+        <p class="sidebar-group-title">TIPS</p>
+        <div class="sidebar-list">
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转播放</span>
+            <span class="shortcut-pill">
+              <span class="shortcut-icon">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>单击</span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">选中/取消</span>
+            <span class="shortcut-pill">
+              <span class="shortcut-icon">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>双击</span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">批量选中/取消</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill">
+                <span class="shortcut-icon">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M2.5 2.5L8.39167 16.6417L10.4833 10.4833L16.6417 8.39167L2.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10.8333 10.8333L15.8333 15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span>拖动</span>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">播放/暂停</span>
+            <span class="shortcut-pill shortcut-pill-text">Space</span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转1秒</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M14 6.76938C14 6.40755 13.6276 6.16552 13.2969 6.31248L6.02804 9.54309C5.63213 9.71905 5.63213 10.2809 6.02804 10.4569L13.2969 13.6875C13.6276 13.8345 14 13.5924 14 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span class="shortcut-or">或</span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 6.76938C5 6.40755 5.37243 6.16552 5.70307 6.31248L12.972 9.54309C13.3679 9.71905 13.3679 10.2809 12.972 10.4569L5.70307 13.6875C5.37243 13.8345 5 13.5924 5 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转5秒</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M14 6.76938C14 6.40755 13.6276 6.16552 13.2969 6.31248L6.02804 9.54309C5.63213 9.71905 5.63213 10.2809 6.02804 10.4569L13.2969 13.6875C13.6276 13.8345 14 13.5924 14 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span class="shortcut-or">或</span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 6.76938C5 6.40755 5.37243 6.16552 5.70307 6.31248L12.972 9.54309C13.3679 9.71905 13.3679 10.2809 12.972 10.4569L5.70307 13.6875C5.37243 13.8345 5 13.5924 5 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="sidebar-section">
-      <h3>⚡ 智能切分</h3>
-      <div>已预计算过零点偏移，生成EDL时自动应用，减少爆音</div>
     </div>
   </div>
 
   <div class="main-wrapper" id="mainWrapper">
 
     <div class="controls">
+      <div class="controls-topbar">
+        <button class="mobile-sidebar-trigger" type="button" onclick="toggleSidebar()" aria-label="打开侧边栏">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M7.5 3.33333V16.6667M3.33334 5C3.33334 4.55797 3.50893 4.13405 3.82149 3.82149C4.13405 3.50893 4.55798 3.33333 5 3.33333H15C15.442 3.33333 15.866 3.50893 16.1785 3.82149C16.4911 4.13405 16.6667 4.55797 16.6667 5V15C16.6667 15.442 16.4911 15.8659 16.1785 16.1785C15.866 16.4911 15.442 16.6667 15 16.6667H5C4.55798 16.6667 4.13405 16.4911 3.82149 16.1785C3.50893 15.8659 3.33334 15.442 3.33334 15V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
       <div class="buttons">
         <div class="buttons-left">
           <button class="btn-tertiary" onclick="saveSelection()">
@@ -203,7 +308,7 @@ ${cssContent.split('\n').map(line => '    ' + line).join('\n')}
             </span>
             生成EDL
           </button>
-          <button class="btn-secondary" onclick="executeSmartCut()">
+          <button class="btn-secondary btn-tooltip" onclick="executeSmartCut()" data-tooltip="自动过零点剪辑(防爆音)">
             <span class="btn-icon">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M13.3333 15C13.7754 15 14.1993 15.1756 14.5118 15.4882C14.8244 15.8007 15 16.2246 15 16.6667C15 16.2246 15.1756 15.8007 15.4882 15.4882C15.8007 15.1756 16.2246 15 16.6667 15C16.2246 15 15.8007 14.8244 15.4882 14.5118C15.1756 14.1993 15 13.7754 15 13.3333C15 13.7754 14.8244 14.1993 14.5118 14.5118C14.1993 14.8244 13.7754 15 13.3333 15ZM13.3333 5C13.7754 5 14.1993 5.17559 14.5118 5.48815C14.8244 5.80071 15 6.22464 15 6.66667C15 6.22464 15.1756 5.80071 15.4882 5.48815C15.8007 5.17559 16.2246 5 16.6667 5C16.2246 5 15.8007 4.8244 15.4882 4.51184C15.1756 4.19928 15 3.77536 15 3.33333C15 3.77536 14.8244 4.19928 14.5118 4.51184C14.1993 4.8244 13.7754 5 13.3333 5ZM7.5 15C7.5 13.6739 8.02678 12.4021 8.96447 11.4645C9.90215 10.5268 11.1739 10 12.5 10C11.1739 10 9.90215 9.47321 8.96447 8.53553C8.02678 7.59785 7.5 6.32608 7.5 5C7.5 6.32608 6.97322 7.59785 6.03553 8.53553C5.09785 9.47321 3.82608 10 2.5 10C3.82608 10 5.09785 10.5268 6.03553 11.4645C6.97322 12.4021 7.5 13.6739 7.5 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

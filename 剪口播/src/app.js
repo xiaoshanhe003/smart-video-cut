@@ -43,11 +43,19 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   const totalTimeEl = document.getElementById('totalTime');
   const content = document.getElementById('content');
   const statsDiv = document.getElementById('stats');
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainWrapper');
+  const controls = document.querySelector('.controls');
+  const sidebarToggle = document.getElementById('sidebarToggle');
+  const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+  const mobileQuery = window.matchMedia('(max-width: 860px)');
   let elements = [];
   let isSelecting = false;
   let selectStart = -1;
   let selectMode = 'add'; // 'add' or 'remove'
   let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
+  let sidebarCollapsedDesktop = false;
+  let sidebarOpenMobile = false;
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -125,14 +133,45 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     }
   }
 
+  function syncSidebarUI() {
+    if (!sidebar || !main) return;
+
+    const isMobile = mobileQuery.matches;
+    sidebar.classList.toggle('collapsed', !isMobile && sidebarCollapsedDesktop);
+    sidebar.classList.toggle('mobile-open', isMobile && sidebarOpenMobile);
+    sidebar.classList.toggle('mobile-hidden', isMobile && !sidebarOpenMobile);
+    main.classList.toggle('sidebar-collapsed', !isMobile && sidebarCollapsedDesktop);
+
+    if (sidebarBackdrop) {
+      sidebarBackdrop.classList.toggle('visible', isMobile && sidebarOpenMobile);
+    }
+
+    document.body.classList.toggle('sidebar-open-mobile', isMobile && sidebarOpenMobile);
+
+    if (sidebarToggle) {
+      const label = isMobile
+        ? (sidebarOpenMobile ? '关闭侧边栏' : '打开侧边栏')
+        : (sidebarCollapsedDesktop ? '展开侧边栏' : '收起侧边栏');
+      sidebarToggle.setAttribute('aria-label', label);
+    }
+
+    requestAnimationFrame(updateControlsOffset);
+  }
+
+  function updateControlsOffset() {
+    if (!controls) return;
+    const height = Math.ceil(controls.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--controls-offset', `${height}px`);
+  }
+
   // 侧边栏展开/收起
-  function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const main = document.getElementById('mainWrapper');
-    const toggle = sidebar.querySelector('.sidebar-toggle');
-    sidebar.classList.toggle('collapsed');
-    main.classList.toggle('sidebar-collapsed');
-    toggle.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+  function toggleSidebar(forceOpen) {
+    if (mobileQuery.matches) {
+      sidebarOpenMobile = typeof forceOpen === 'boolean' ? forceOpen : !sidebarOpenMobile;
+    } else {
+      sidebarCollapsedDesktop = typeof forceOpen === 'boolean' ? !forceOpen : !sidebarCollapsedDesktop;
+    }
+    syncSidebarUI();
   }
 
   // 渲染内容
@@ -144,18 +183,24 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       const span = document.createElement('span');
       span.className = 'word';
       span.dataset.index = i;
+      const isWhitespaceToken = !word.isGap && /^\s+$/.test(word.text || '');
 
       if (word.isGap) {
         span.classList.add('gap');
         span.textContent = `[${(word.end - word.start).toFixed(1)}s]`;
       } else {
-        span.textContent = word.text;
+        span.textContent = isWhitespaceToken ? '' : word.text;
       }
 
+      if (isWhitespaceToken) {
+        span.classList.add('whitespace-token');
+      }
+
+      if (autoSelected.has(i)) {
+        span.classList.add('auto-selected');
+      }
       if (selected.has(i)) {
         span.classList.add('selected');
-      } else if (autoSelected.has(i)) {
-        span.classList.add('auto-selected');
       }
 
       // 单击跳转播放（延迟执行，若被双击取消则不执行）
@@ -225,11 +270,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     if (selected.has(i)) {
       selected.delete(i);
       elements[i].classList.remove('selected');
-      if (autoSelected.has(i)) elements[i].classList.add('auto-selected');
     } else {
       selected.add(i);
       elements[i].classList.add('selected');
-      elements[i].classList.remove('auto-selected');
     }
     updateSelectedBorderRadius();
     updateStats();
@@ -347,6 +390,22 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     document.addEventListener('DOMContentLoaded', () => setTimeout(render, 100));
   }
 
+  syncSidebarUI();
+  updateControlsOffset();
+
+  if (window.ResizeObserver && controls) {
+    const controlsResizeObserver = new ResizeObserver(() => updateControlsOffset());
+    controlsResizeObserver.observe(controls);
+  }
+
+  window.addEventListener('resize', updateControlsOffset);
+  mobileQuery.addEventListener('change', () => {
+    if (!mobileQuery.matches) {
+      sidebarOpenMobile = false;
+    }
+    syncSidebarUI();
+  });
+
   // 播放时间更新 - 跳过选中片段 + 高亮当前词
   wavesurfer.on('timeupdate', (t) => {
     // 播放时跳过选中片段
@@ -406,13 +465,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       if (selectMode === 'add') {
         selected.add(j);
         elements[j].classList.add('selected');
-        elements[j].classList.remove('auto-selected');
       } else {
         selected.delete(j);
         elements[j].classList.remove('selected');
-        if (autoSelected.has(j)) {
-          elements[j].classList.add('auto-selected');
-        }
       }
     }
     updateSelectedBorderRadius();
@@ -538,6 +593,12 @@ ${shouldClose ? '（服务器已关闭）' : ''}`);
 
   // 键盘快捷键
   document.addEventListener('keydown', e => {
+    if (e.code === 'Escape' && mobileQuery.matches && sidebarOpenMobile) {
+      e.preventDefault();
+      toggleSidebar(false);
+      return;
+    }
+
     if (e.code === 'Space') {
       e.preventDefault();
       wavesurfer.playPause();
