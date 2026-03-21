@@ -90,7 +90,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     return `${s}秒`;
   }
 
-  // 更新播放器标题（成品时长和删除百分比）
+  // 更新播放器标题（成品时长、删除百分比和 AI 预选有效度）
   function updatePlayerTitle(currentTime, totalDuration) {
     const playerTitle = document.getElementById('playerTitle');
     if (!playerTitle || !totalDuration) return;
@@ -114,7 +114,14 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     const keptS = (keptDuration % 60).toFixed(1);
     const keptTimeStr = keptM > 0 ? `${keptM}分${keptS}秒` : `${keptS}秒`;
 
-    playerTitle.textContent = `成品时长 ${keptTimeStr}，已删除${deletedPercent}%`;
+    const keptAutoSelectedCount = Array.from(selected).filter(i => autoSelected.has(i)).length;
+    const manuallyAddedCount = Array.from(selected).filter(i => !autoSelected.has(i)).length;
+    const effectivenessDenominator = autoSelected.size + manuallyAddedCount;
+    const effectiveness = effectivenessDenominator > 0
+      ? Math.round((keptAutoSelectedCount / effectivenessDenominator) * 100)
+      : 0;
+
+    playerTitle.textContent = `成品时长 ${keptTimeStr}，已删除${deletedPercent}%，AI预选有效度${effectiveness}%`;
   }
 
   // 更新播放/暂停图标
@@ -447,6 +454,8 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       <div>删除: ${formatDuration(deleteDuration)} (${savedPercent}%)</div>
       <div>选中: ${deleteCount} 个</div>
     `;
+
+    updatePlayerTitle(wavesurfer.getCurrentTime(), totalDuration);
   }
 
   // 复制删除列表
