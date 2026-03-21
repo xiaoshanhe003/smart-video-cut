@@ -17,6 +17,10 @@ const { execSync } = require('child_process');
 
 const PORT = process.argv[2] || 8899;
 let VIDEO_FILE = process.argv[3] || findVideoFile();
+const SESSION_TTL_MS = 45000;
+const EMPTY_EXIT_DELAY_MS = 2000;
+const activeSessions = new Map();
+let emptyExitTimer = null;
 
 function findVideoFile() {
   const files = fs.readdirSync('.').filter(f => f.endsWith('.mp4'));
@@ -80,6 +84,80 @@ function generateEDL(keepSegments, fps, outputFile) {
   fs.writeFileSync(outputFile, edl);
 }
 
+function getActiveSessionCount() {
+  return activeSessions.size;
+}
+
+function clearEmptyExitTimer() {
+  if (emptyExitTimer) {
+    clearTimeout(emptyExitTimer);
+    emptyExitTimer = null;
+  }
+}
+
+function shutdownServer(reason) {
+  clearEmptyExitTimer();
+  console.log(`🔚 服务器已关闭${reason ? `（${reason}）` : ''}`);
+  server.close(() => process.exit(0));
+}
+
+function scheduleExitIfNoSessions(reason) {
+  if (getActiveSessionCount() > 0) {
+    clearEmptyExitTimer();
+    return;
+  }
+
+  if (emptyExitTimer) {
+    return;
+  }
+
+  emptyExitTimer = setTimeout(() => {
+    emptyExitTimer = null;
+    if (getActiveSessionCount() === 0) {
+      shutdownServer(reason);
+    }
+  }, EMPTY_EXIT_DELAY_MS);
+}
+
+function touchSession(sessionId) {
+  if (!sessionId) return 0;
+  activeSessions.set(sessionId, Date.now());
+  clearEmptyExitTimer();
+  return getActiveSessionCount();
+}
+
+function removeSession(sessionId) {
+  if (!sessionId) return getActiveSessionCount();
+  activeSessions.delete(sessionId);
+  const count = getActiveSessionCount();
+  if (count === 0) {
+    scheduleExitIfNoSessions('最后一个审核页面已关闭');
+  }
+  return count;
+}
+
+function pruneExpiredSessions() {
+  const now = Date.now();
+  let removedCount = 0;
+
+  for (const [sessionId, lastSeen] of activeSessions.entries()) {
+    if (now - lastSeen > SESSION_TTL_MS) {
+      activeSessions.delete(sessionId);
+      removedCount++;
+    }
+  }
+
+  if (removedCount > 0) {
+    console.log(`⌛ 清理过期会话: ${removedCount} 个，剩余 ${getActiveSessionCount()} 个`);
+  }
+
+  if (getActiveSessionCount() === 0) {
+    scheduleExitIfNoSessions('最后一个审核页面已关闭');
+  }
+}
+
+setInterval(pruneExpiredSessions, 10000).unref();
+
 const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,6 +167,55 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/shutdown') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    setTimeout(() => shutdownServer('用户确认关闭服务器'), 100);
+    return;
+  }
+
+  // API: 页面会话管理
+  if (req.method === 'POST' && (
+    req.url === '/api/session/open'
+    || req.url === '/api/session/ping'
+    || req.url === '/api/session/close'
+  )) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const data = body ? JSON.parse(body) : {};
+        const sessionId = data.sessionId;
+
+        if (!sessionId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Missing sessionId' }));
+          return;
+        }
+
+        pruneExpiredSessions();
+
+        let activeCount;
+        if (req.url === '/api/session/close') {
+          activeCount = removeSession(sessionId);
+          console.log(`👋 页面离开: ${sessionId}，活跃页面 ${activeCount} 个`);
+        } else {
+          activeCount = touchSession(sessionId);
+          if (req.url === '/api/session/open') {
+            console.log(`🟢 页面打开: ${sessionId}，活跃页面 ${activeCount} 个`);
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, activeCount }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
     return;
   }
 
@@ -218,9 +345,7 @@ const server = http.createServer((req, res) => {
         const shouldClose = !req.url.includes('-noclose');
         if (shouldClose) {
           setTimeout(() => {
-            console.log('🔚 服务器已关闭');
-            server.close();
-            process.exit(0);
+            shutdownServer('EDL 已生成');
           }, 500);
         } else {
           console.log('⏸️ 服务器保持打开');
@@ -300,9 +425,7 @@ const server = http.createServer((req, res) => {
         const shouldCloseSmart = !req.url.includes('-noclose');
         if (shouldCloseSmart) {
           setTimeout(() => {
-            console.log('🔚 服务器已关闭');
-            server.close();
-            process.exit(0);
+            shutdownServer('智能 EDL 已生成');
           }, 500);
         } else {
           console.log('⏸️ 服务器保持打开');

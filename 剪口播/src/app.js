@@ -12,9 +12,64 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   const words = wordsData;
   const autoSelected = new Set(autoSelectedData);
   let selected = new Set(autoSelected);
+  const sessionId = `review-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const sessionPingIntervalMs = 15000;
+  let sessionPingTimer = null;
+  let sessionClosed = false;
 
   // 过零点偏移量（预计算）
   const zeroCrossingOffsets = zeroCrossingOffsetsData || {};
+
+  async function sendSessionEvent(eventName, useBeacon = false) {
+    const url = `/api/session/${eventName}`;
+    const payload = JSON.stringify({ sessionId });
+
+    if (useBeacon && navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon(url, blob);
+      return true;
+    }
+
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: eventName === 'close'
+      });
+      return true;
+    } catch (err) {
+      console.warn(`session ${eventName} failed`, err);
+      return false;
+    }
+  }
+
+  function startSessionHeartbeat() {
+    sessionPingTimer = window.setInterval(() => {
+      if (!sessionClosed) {
+        sendSessionEvent('ping');
+      }
+    }, sessionPingIntervalMs);
+  }
+
+  function closeSession(useBeacon = false) {
+    if (sessionClosed) return;
+    sessionClosed = true;
+    if (sessionPingTimer) {
+      clearInterval(sessionPingTimer);
+      sessionPingTimer = null;
+    }
+    sendSessionEvent('close', useBeacon);
+  }
+
+  sendSessionEvent('open').then((ok) => {
+    if (ok && !sessionClosed) {
+      startSessionHeartbeat();
+    }
+  });
+
+  window.addEventListener('pagehide', () => closeSession(true));
+  window.addEventListener('beforeunload', () => closeSession(true));
 
   // 应用过零点偏移
   function applyZeroCrossing(time) {
@@ -91,6 +146,29 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       return `${m}分${s}秒 (${totalSec}s)`;
     }
     return `${s}秒`;
+  }
+
+  function getSelectionStats() {
+    const totalDuration = wavesurfer.getDuration();
+    let deleteDuration = 0;
+
+    words.forEach((w, i) => {
+      if (selected.has(i)) {
+        deleteDuration += w.end - w.start;
+      }
+    });
+
+    const keptDuration = Math.max(0, totalDuration - deleteDuration);
+    const deletedPercent = totalDuration > 0
+      ? (deleteDuration / totalDuration * 100).toFixed(1)
+      : '0.0';
+
+    return {
+      totalDuration,
+      deleteDuration,
+      keptDuration,
+      deletedPercent
+    };
   }
 
   // 更新播放器标题（成品时长、删除百分比和 AI 预选有效度）
@@ -473,23 +551,13 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 更新统计
   function updateStats() {
-    const totalDuration = wavesurfer.getDuration();
-    let deleteDuration = 0;
+    const { totalDuration, deleteDuration, keptDuration, deletedPercent } = getSelectionStats();
     const deleteCount = selected.size;
-
-    words.forEach((w, i) => {
-      if (selected.has(i)) {
-        deleteDuration += w.end - w.start;
-      }
-    });
-
-    const keptDuration = totalDuration - deleteDuration;
-    const savedPercent = totalDuration > 0 ? (deleteDuration / totalDuration * 100).toFixed(1) : 0;
 
     statsDiv.innerHTML = `
       <div>总时长: ${formatDuration(totalDuration)}</div>
       <div>保留: ${formatDuration(keptDuration)}</div>
-      <div>删除: ${formatDuration(deleteDuration)} (${savedPercent}%)</div>
+      <div>删除: ${formatDuration(deleteDuration)} (${deletedPercent}%)</div>
       <div>选中: ${deleteCount} 个</div>
     `;
 
@@ -718,9 +786,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 生成 EDL
   async function executeCut() {
-    const deleteCount = selected.size;
-    const shouldClose = confirm(`确认生成 EDL 文件？\n\n已标记 ${deleteCount} 个元素待删除\n\n是否关闭服务器？\n\n点击"确定"=关闭\n点击"取消"=保持打开`);
-    if (shouldClose === undefined) return; // 点击取消
+    const { keptDuration, deletedPercent } = getSelectionStats();
+    const shouldGenerate = confirm(`确认生成EDL文件？\n\n预计成品时长${formatDuration(keptDuration)}，已删除${deletedPercent}%`);
+    if (!shouldGenerate) return;
 
     const segments = [];
     const sortedSelected = Array.from(selected).sort((a, b) => a - b);
@@ -734,7 +802,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     overlay.classList.add('show');
 
     try {
-      const res = await fetch('/api/cut' + (shouldClose ? '' : '-noclose'), {
+      const res = await fetch('/api/cut-noclose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(segments)
@@ -743,38 +811,34 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       overlay.classList.remove('show');
 
       if (data.success) {
-        alert(`✅ EDL 已生成！
-
-📄 文件: ${data.output}
-
-⏱️ 时间统计:
-   原时长: ${formatDuration(data.originalDuration)}
-   保留:   ${formatDuration(data.keptDuration)}（${data.keepCount} 个片段）
-   删减:   ${formatDuration(data.deletedDuration)}（${data.savedPercent}%）
-
-请将 .edl 文件导入 DaVinci Resolve${shouldClose ? '（服务器已关闭）' : ''}`);
-        if (shouldClose) {
+        const shouldCloseServer = confirm(`✅ EDL已生成，要关闭服务器吗？\n\nEDL文件在“3_审核”目录下，文件名为 ${data.output}`);
+        if (shouldCloseServer) {
+          try {
+            await fetch('/api/shutdown', { method: 'POST', keepalive: true });
+          } catch (shutdownErr) {
+            console.warn('shutdown failed', shutdownErr);
+          }
           window.close();
         }
       } else {
-        alert('❌ EDL 生成失败: ' + data.error);
+        const errorDetail = data.error ? `\n\n错误信息：${data.error}` : '';
+        alert(`❌ EDL生成失败\n\n没有成功生成 EDL 文件，请稍后重试。${errorDetail}`);
       }
     } catch (err) {
       overlay.classList.remove('show');
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch')) {
-        alert(`📄 EDL 可能已生成\n\n请检查视频所在目录下的 .edl 文件${shouldClose ? '（服务器已关闭）' : ''}`);
-        if (shouldClose) window.close();
+        alert('⚠️ 无法确认生成结果\n\n请到“3_审核”目录查看是否已经生成对应的 .edl 文件。');
       } else {
-        alert('❌ 请求失败: ' + err.message + '\n\n请确保使用 review_server.js 启动服务');
+        alert('❌ 无法连接审核服务器\n\n请确认审核服务器正在运行，然后刷新页面后重试。');
       }
     }
   }
 
   // 智能 EDL（带过零点检测）
   async function executeSmartCut() {
-    const deleteCount = selected.size;
-    const shouldClose = confirm(`确认生成智能 EDL（带过零点检测）？\n\n已标记 ${deleteCount} 个元素待删除\n\n切分点已优化到最近的过零点\n\n是否关闭服务器？\n\n点击"确定"=关闭\n点击"取消"=保持打开`);
-    if (shouldClose === undefined) return;
+    const { keptDuration, deletedPercent } = getSelectionStats();
+    const shouldGenerate = confirm(`确认生成智能EDL文件（自动过零点）？\n\n预计成品时长${formatDuration(keptDuration)}，已删除${deletedPercent}%。切分点将被优化至最近的过零点，减少爆音。`);
+    if (!shouldGenerate) return;
 
     const segments = [];
     const sortedSelected = Array.from(selected).sort((a, b) => a - b);
@@ -788,7 +852,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     overlay.querySelector('.loading-text').textContent = '⚡ 正在检测过零点...';
 
     try {
-      const res = await fetch('/api/cut-smart' + (shouldClose ? '' : '-noclose'), {
+      const res = await fetch('/api/cut-smart-noclose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deleteSegments: segments, optimizeKeep: true })
@@ -797,33 +861,25 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       overlay.classList.remove('show');
 
       if (data.success) {
-        alert(`✅ 智能 EDL 已生成！
-
-📄 文件: ${data.output}
-
-⏱️ 时间统计:
-   原时长: ${formatDuration(data.originalDuration)}
-   保留:   ${formatDuration(data.keptDuration)}
-   删减:   ${formatDuration(data.deletedDuration)}
-
-✨ 特点:
-   - 切分点已优化到过零点
-   - 减少音频爆音
-   - 可导入 DaVinci 二次编辑
-${shouldClose ? '（服务器已关闭）' : ''}`);
-        if (shouldClose) {
+        const shouldCloseServer = confirm(`✅ 智能EDL已生成，要关闭服务器吗？\n\nEDL文件在“3_审核”目录下，文件名为 ${data.output}`);
+        if (shouldCloseServer) {
+          try {
+            await fetch('/api/shutdown', { method: 'POST', keepalive: true });
+          } catch (shutdownErr) {
+            console.warn('shutdown failed', shutdownErr);
+          }
           window.close();
         }
       } else {
-        alert('❌ 智能 EDL 生成失败: ' + data.error);
+        const errorDetail = data.error ? `\n\n错误信息：${data.error}` : '';
+        alert(`❌ EDL生成失败\n\n没有成功生成 EDL 文件，请稍后重试。${errorDetail}`);
       }
     } catch (err) {
       overlay.classList.remove('show');
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch')) {
-        alert(`📄 EDL 可能已生成\n\n请检查视频所在目录下的 .edl 文件${shouldClose ? '（服务器已关闭）' : ''}`);
-        if (shouldClose) window.close();
+        alert('⚠️ 无法确认生成结果\n\n请到“3_审核”目录查看是否已经生成对应的 .edl 文件。');
       } else {
-        alert('❌ 请求失败: ' + err.message);
+        alert('❌ 无法连接审核服务器\n\n请确认审核服务器正在运行，然后刷新页面后重试。');
       }
     }
   }
@@ -854,4 +910,6 @@ ${shouldClose ? '（服务器已关闭）' : ''}`);
   window.executeCut = executeCut;
   window.executeSmartCut = executeSmartCut;
   window.wavesurfer = wavesurfer;
+
+  window.addEventListener('unload', () => closeSession(true));
 }
