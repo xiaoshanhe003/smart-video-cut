@@ -53,10 +53,13 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   let isSelecting = false;
   let selectStart = -1;
   let selectMode = 'add'; // 'add' or 'remove'
+  let pendingShiftDragStart = -1;
+  let pendingShiftDragPoint = null;
   let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
   let sidebarCollapsedDesktop = false;
   let sidebarOpenMobile = false;
   const expandedGapGroups = new Set();
+  let shiftRangeAnchor = null;
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -261,9 +264,20 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       span.classList.add('selected');
     }
 
-    // 单击跳转播放（延迟执行，若被双击取消则不执行）
-    span.onclick = () => {
+    // 单击跳转播放；Shift+单击用于区间选择
+    span.onclick = (e) => {
       if (isSelecting) return;
+      if (e.shiftKey) {
+        if (shiftRangeAnchor === null) {
+          shiftRangeAnchor = i;
+        } else {
+          applyRangeSelection(shiftRangeAnchor, i);
+          shiftRangeAnchor = null;
+        }
+        return;
+      }
+
+      shiftRangeAnchor = null;
       if (pendingClickTimer) return;
       pendingClickTimer = setTimeout(() => {
         pendingClickTimer = null;
@@ -278,16 +292,16 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
         clearTimeout(pendingClickTimer);
         pendingClickTimer = null;
       }
+
+      shiftRangeAnchor = null;
       toggle(i);
     };
 
     // Shift+拖动选择/取消
     span.onmousedown = (e) => {
       if (e.shiftKey) {
-        isSelecting = true;
-        selectStart = i;
-        selectMode = selected.has(i) ? 'remove' : 'add';
-        e.preventDefault();
+        pendingShiftDragStart = i;
+        pendingShiftDragPoint = { x: e.clientX, y: e.clientY };
       }
     };
 
@@ -416,6 +430,30 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       }
       // 中间的片段不加任何类（都是尖角）
     });
+  }
+
+  function applyRangeSelection(startIndex, endIndex) {
+    const min = Math.min(startIndex, endIndex);
+    const max = Math.max(startIndex, endIndex);
+    let shouldRemoveRange = true;
+
+    for (let j = min; j <= max; j++) {
+      if (!selected.has(j)) {
+        shouldRemoveRange = false;
+        break;
+      }
+    }
+
+    for (let j = min; j <= max; j++) {
+      if (shouldRemoveRange) {
+        selected.delete(j);
+      } else {
+        selected.add(j);
+      }
+    }
+
+    expandedGapGroups.clear();
+    render();
   }
 
   // 切换选中状态
@@ -615,9 +653,32 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // Shift+拖动多选
   content.addEventListener('mousemove', e => {
-    if (!isSelecting) return;
     const target = e.target.closest('[data-index]');
-    if (!target) return;
+    if (!target) {
+      return;
+    }
+
+    if (!isSelecting) {
+      if (pendingShiftDragStart === -1) {
+        return;
+      }
+
+      const movedEnough = !pendingShiftDragPoint
+        || Math.abs(e.clientX - pendingShiftDragPoint.x) > 4
+        || Math.abs(e.clientY - pendingShiftDragPoint.y) > 4;
+      if (!movedEnough) {
+        return;
+      }
+
+      const i = parseInt(target.dataset.index);
+      if (i === pendingShiftDragStart) {
+        return;
+      }
+
+      isSelecting = true;
+      selectStart = pendingShiftDragStart;
+      selectMode = selected.has(selectStart) ? 'remove' : 'add';
+    }
 
     const i = parseInt(target.dataset.index);
     const min = Math.min(selectStart, i);
@@ -638,9 +699,21 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 鼠标释放结束选择
   content.addEventListener('mouseup', () => {
-    if (!isSelecting) return;
+    pendingShiftDragStart = -1;
+    pendingShiftDragPoint = null;
+    if (!isSelecting) {
+      return;
+    }
+
     isSelecting = false;
+    shiftRangeAnchor = null;
     render();
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.key === 'Shift' && !isSelecting) {
+      shiftRangeAnchor = null;
+    }
   });
 
   // 生成 EDL

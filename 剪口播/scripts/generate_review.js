@@ -210,6 +210,28 @@ ${cssContent.split('\n').map(line => '    ' + line).join('\n')}
             </span>
           </div>
           <div class="sidebar-row">
+            <span class="sidebar-label">区间选中/取消</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill">
+                <span class="shortcut-icon">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span>单击</span>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
             <span class="sidebar-label">播放/暂停</span>
             <span class="shortcut-pill shortcut-pill-text">Space</span>
           </div>
