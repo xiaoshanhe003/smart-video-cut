@@ -98,6 +98,8 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   const totalTimeEl = document.getElementById('totalTime');
   const content = document.getElementById('content');
   const statsDiv = document.getElementById('stats');
+  const undoButton = document.getElementById('undoButton');
+  const redoButton = document.getElementById('redoButton');
   const sidebar = document.getElementById('sidebar');
   const main = document.getElementById('mainWrapper');
   const controls = document.querySelector('.controls');
@@ -118,6 +120,66 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   const expandedGapGroups = new Set();
   let shiftRangeAnchor = null;
   let previewRange = null;
+  let selectionHistory = [Array.from(selected).sort((a, b) => a - b)];
+  let historyIndex = 0;
+
+  function isSameSnapshot(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  function getSelectionSnapshot() {
+    return Array.from(selected).sort((a, b) => a - b);
+  }
+
+  function updateHistoryButtons() {
+    if (undoButton) {
+      undoButton.disabled = historyIndex <= 0;
+    }
+    if (redoButton) {
+      redoButton.disabled = historyIndex >= selectionHistory.length - 1;
+    }
+  }
+
+  function pushSelectionHistory(snapshot) {
+    if (isSameSnapshot(selectionHistory[historyIndex], snapshot)) {
+      updateHistoryButtons();
+      return false;
+    }
+
+    selectionHistory = selectionHistory.slice(0, historyIndex + 1);
+    selectionHistory.push(snapshot);
+    historyIndex = selectionHistory.length - 1;
+    updateHistoryButtons();
+    return true;
+  }
+
+  function applySelectionSnapshot(snapshot, shouldRender = true) {
+    selected = new Set(snapshot);
+    expandedGapGroups.clear();
+    updateHistoryButtons();
+    if (shouldRender) {
+      render();
+    }
+  }
+
+  function commitSelectionChange(mutator) {
+    const beforeSnapshot = getSelectionSnapshot();
+    mutator();
+    const afterSnapshot = getSelectionSnapshot();
+
+    if (isSameSnapshot(beforeSnapshot, afterSnapshot)) {
+      return false;
+    }
+
+    pushSelectionHistory(afterSnapshot);
+    expandedGapGroups.clear();
+    render();
+    return true;
+  }
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -126,7 +188,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       const data = await res.json();
       if (data.success && data.selected && data.selected.length > 0) {
         selected = new Set(data.selected);
+        pushSelectionHistory(getSelectionSnapshot());
         console.log('📂 已加载保存的方案:', data.selected.length, '个选中项');
+        render();
       }
     } catch (err) {
       console.log('📂 无保存的方案，使用AI预选');
@@ -604,25 +668,23 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
     const { min, max } = getNormalizedRange(startIndex, endIndex);
     const mode = getRangeSelectionMode(min, max);
-    applySelectionModeToRange(min, max, mode);
-
-    expandedGapGroups.clear();
-    render();
+    commitSelectionChange(() => applySelectionModeToRange(min, max, mode));
   }
 
   // 切换选中状态
   function toggle(i) {
     const group = findSelectedGapGroup(i);
-    if (selected.has(i)) {
-      selected.delete(i);
-    } else {
-      selected.add(i);
-    }
+    commitSelectionChange(() => {
+      if (selected.has(i)) {
+        selected.delete(i);
+      } else {
+        selected.add(i);
+      }
 
-    if (group) {
-      expandedGapGroups.delete(group.key);
-    }
-    render();
+      if (group) {
+        expandedGapGroups.delete(group.key);
+      }
+    });
   }
 
   // 更新统计
@@ -677,8 +739,21 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 清空选择
   function clearAll() {
-    selected.clear();
-    render();
+    commitSelectionChange(() => {
+      selected.clear();
+    });
+  }
+
+  function undoSelection() {
+    if (historyIndex <= 0) return;
+    historyIndex--;
+    applySelectionSnapshot(selectionHistory[historyIndex]);
+  }
+
+  function redoSelection() {
+    if (historyIndex >= selectionHistory.length - 1) return;
+    historyIndex++;
+    applySelectionSnapshot(selectionHistory[historyIndex]);
   }
 
   // wavesurfer 就绪
@@ -843,13 +918,14 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     }
 
     const { min, max } = getNormalizedRange(selectStart, previewRange?.max ?? selectStart);
-    applySelectionModeToRange(min, max, selectMode);
+    const didChange = commitSelectionChange(() => applySelectionModeToRange(min, max, selectMode));
 
     isSelecting = false;
     resetShiftPreview();
-    expandedGapGroups.clear();
     suppressNextClick = true;
-    render();
+    if (!didChange) {
+      render();
+    }
   }
 
   function cancelShiftDrag() {
@@ -1006,6 +1082,19 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
   // 键盘快捷键
   document.addEventListener('keydown', e => {
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const modifierPressed = isMac ? e.metaKey : e.ctrlKey;
+
+    if (modifierPressed && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        redoSelection();
+      } else {
+        undoSelection();
+      }
+      return;
+    }
+
     if (e.code === 'Escape' && mobileQuery.matches && sidebarOpenMobile) {
       e.preventDefault();
       toggleSidebar(false);
@@ -1025,11 +1114,15 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   // 暴露给全局，以便 HTML onclick 调用
   window.toggleSidebar = toggleSidebar;
   window.saveSelection = saveSelection;
+  window.undoSelection = undoSelection;
+  window.redoSelection = redoSelection;
   window.copyDeleteList = copyDeleteList;
   window.clearAll = clearAll;
   window.executeCut = executeCut;
   window.executeSmartCut = executeSmartCut;
   window.wavesurfer = wavesurfer;
+
+  updateHistoryButtons();
 
   window.addEventListener('unload', () => closeSession(true));
 }

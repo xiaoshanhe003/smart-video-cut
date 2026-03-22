@@ -303,6 +303,23 @@ ${cssContent.split('\n').map(line => '    ' + line).join('\n')}
             保存
           </button>
           <div class="divider"></div>
+          <button class="btn-tertiary" id="undoButton" onclick="undoSelection()" disabled>
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M2.5 5.83334V10.8333M2.5 10.8333H7.5M2.5 10.8333L5 8.58333C6.37404 7.35096 8.15427 6.66854 10 6.66666C11.9891 6.66666 13.8968 7.45684 15.3033 8.86336C16.7098 10.2699 17.5 12.1775 17.5 14.1667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            撤销
+          </button>
+          <button class="btn-tertiary" id="redoButton" onclick="redoSelection()" disabled>
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M17.5 5.83334V10.8333M17.5 10.8333H12.5M17.5 10.8333L15 8.58333C13.626 7.35096 11.8457 6.66854 10 6.66666C8.01088 6.66666 6.10322 7.45684 4.6967 8.86336C3.29018 10.2699 2.5 12.1775 2.5 14.1667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            恢复
+          </button>
+          <div class="divider"></div>
           <button class="btn-tertiary" onclick="copyDeleteList()">
             <span class="btn-icon">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

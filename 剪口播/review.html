@@ -1,0 +1,2429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>审核稿</title>
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
+  <style>
+    /* 剪口播审核页样式 */
+    
+    /* 浅色模式主题 - 清新阅读体验 */
+    :root {
+      --bg-primary: #fafafa;
+      --bg-tertiary: #f5f5f5;
+      --bg-overlay: rgba(255, 255, 255, 0.95);
+      --text-primary: #1a1a2e;
+      --text-secondary: #4a4a68;
+      --border: #e8e8ec;
+      --auto-selected: #C084FC4D;
+      /* 手动选中（非AI预选） */
+      --stone-50: #FAFAF9;
+      --stone-100: #f5f5f4;
+      --stone-200: #E7E5E4;
+      --stone-300: #d6d3d1;
+      --stone-400: #A8A29E;
+      --stone-500: #78716C;
+      --stone-700: #44403c;
+      --stone-900: #1c1917;
+      --lime-200: #D9F99D;
+      --lime-300: #CAE595;
+      --lime-700: #4D7C0F;
+      --preview-stroke-color: rgba(77, 124, 15, 0.5);
+      --preview-stroke-width: 2px;
+      --preview-dash-length: 2px;
+      --preview-dash-gap: 2px;
+      --preview-horizontal-stroke:
+        repeating-linear-gradient(
+          90deg,
+          var(--preview-stroke-color) 0 var(--preview-dash-length),
+          transparent var(--preview-dash-length) calc(var(--preview-dash-length) + var(--preview-dash-gap))
+        );
+      --preview-vertical-stroke:
+        repeating-linear-gradient(
+          180deg,
+          var(--preview-stroke-color) 0 var(--preview-dash-length),
+          transparent var(--preview-dash-length) calc(var(--preview-dash-length) + var(--preview-dash-gap))
+        );
+      --red-800: #991b1b;
+      --white-300: #FFFFFF;
+      --stone-200-hover: rgba(231, 229, 228, 0.7);
+      --sidebar-backdrop: rgba(28, 25, 23, 0.14);
+      --shadow-player: 0 6px 40px 0 rgba(68, 64, 60, 0.04);
+      --shadow-sidebar-mobile: 8px 0 40px rgba(28, 25, 23, 0.12);
+      --space-050: 2px;
+      --space-100: 4px;
+      --space-150: 6px;
+      --space-200: 8px;
+      --space-250: 10px;
+      --space-300: 12px;
+      --space-350: 16px;
+      --space-400: 20px;
+      --space-500: 24px;
+      --space-600: 32px;
+      --space-700: 40px;
+      --r-100: 8px;
+      --r-200: 20px;
+      --r-pill: 26.5px;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    
+    body.sidebar-open-mobile {
+      overflow: hidden;
+    }
+    
+    /* ========== 顶部控制栏 ========== */
+    .controls {
+      position: fixed;
+      top: 0;
+      left: 332px;
+      width: calc(100% - 332px);
+      background: var(--bg-primary);
+      padding: 0 0 var(--space-300);
+      z-index: 100;
+      transition: left 0.28s ease, width 0.28s ease;
+    }
+    
+    .controls-topbar {
+      display: none;
+      max-width: 944px;
+      margin: 0 auto var(--space-200);
+    }
+    
+    .mobile-sidebar-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: var(--r-100);
+      background: var(--stone-100);
+      color: var(--stone-700);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    
+    .mobile-sidebar-trigger:hover {
+      background: var(--stone-200);
+      color: var(--stone-900);
+    }
+    
+    .mobile-sidebar-trigger:focus,
+    .mobile-sidebar-trigger:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+    
+    .buttons {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-400) var(--space-700);
+      background: var(--bg-primary);
+    }
+    
+    .buttons-left,
+    .buttons-right {
+      display: flex;
+      align-items: center;
+      gap: var(--space-200);
+    }
+    
+    .buttons-left {
+      gap: 0;
+    }
+    
+    .buttons-left .btn-tertiary,
+    .buttons-right .btn-primary,
+    .buttons-right .btn-secondary {
+      font-size: 14px;
+    }
+    
+    /* ========== 按钮样式 ========== */
+    .btn-tertiary {
+      display: flex;
+      align-items: center;
+      gap: var(--space-200);
+      height: 44px;
+      padding: var(--space-300) var(--space-400);
+      background: transparent;
+      border: none;
+      border-radius: var(--r-100);
+      color: var(--stone-700);
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-tertiary:hover {
+      background: var(--bg-tertiary);
+    }
+    .btn-tertiary:disabled {
+      background: transparent;
+      color: var(--stone-400);
+      cursor: not-allowed;
+    }
+    .btn-tertiary:disabled:hover {
+      background: transparent;
+    }
+    .btn-tertiary.danger {
+      color: var(--red-800);
+    }
+    
+    .divider {
+      width: 0;
+      height: 20px;
+      border-left: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      gap: var(--space-200);
+      height: 44px;
+      padding: var(--space-300) var(--space-400);
+      background: var(--stone-900);
+      border: none;
+      border-radius: var(--r-100);
+      color: var(--stone-100);
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-secondary {
+      display: flex;
+      align-items: center;
+      gap: var(--space-200);
+      height: 44px;
+      padding: var(--space-300) var(--space-400);
+      background: transparent;
+      border: 1px solid var(--stone-300);
+      border-radius: var(--r-100);
+      color: var(--stone-700);
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-secondary:hover {
+      border-color: var(--stone-700);
+    }
+    
+    .btn-tooltip {
+      position: relative;
+    }
+    
+    .btn-tooltip::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      top: calc(100% + var(--space-200));
+      transform: translateX(-50%) translateY(calc(-1 * var(--space-100)));
+      padding: var(--space-100) var(--space-200);
+      border-radius: var(--r-100);
+      background: var(--stone-100);
+      border: 1px solid var(--stone-300);
+      color: var(--stone-700);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    
+    .btn-tooltip:hover::after {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .btn-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    /* ========== 播放器 ========== */
+    .player {
+      max-width: 944px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-350);
+      padding: var(--space-300) var(--space-400) var(--space-350);
+      background: var(--white-300);
+      border-radius: var(--r-200);
+      box-shadow: var(--shadow-player);
+      width: 100%;
+    }
+    
+    @media (max-width: 960px) {
+      .player {
+        max-width: 100%;
+      }
+    }
+    
+    .player-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .player-title {
+      font-size: 16px;
+      color: var(--stone-700);
+      font-weight: 400;
+    }
+    
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-400);
+    }
+    
+    .speed-select {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .speed-select select {
+      appearance: none;
+      padding: var(--space-150) 28px var(--space-150) var(--space-300);
+      background: var(--white-300);
+      color: var(--stone-900);
+      border: 1px solid var(--stone-300);
+      border-radius: var(--r-100);
+      font-size: 16px;
+      cursor: pointer;
+      height: 32px;
+    }
+    
+    .speed-select select:hover {
+      border-color: var(--stone-700);
+    }
+    
+    .speed-chevron {
+      position: absolute;
+      top: 50%;
+      right: var(--space-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--stone-500);
+    }
+    
+    .play-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-400);
+    }
+    
+    .play-btn-main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      background: var(--stone-100);
+      border: none;
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      color: var(--stone-900);
+      transition: opacity 0.15s;
+    }
+    
+    .play-btn-main:hover {
+      opacity: 0.85;
+    }
+    
+    .player-progress {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-200);
+    }
+    
+    #waveform {
+      width: 100%;
+      height: 40px;
+      border-radius: var(--r-100);
+      overflow: hidden;
+    }
+    
+    .time-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-size: 12px;
+      color: var(--stone-400);
+      font-weight: 400;
+    }
+    
+    #currentTime {
+      font-variant-numeric: tabular-nums;
+    }
+    
+    #totalTime {
+      font-variant-numeric: tabular-nums;
+      color: var(--stone-400);
+      margin-left: -6px;
+    }
+    
+    /* ========== 文字区域 ========== */
+    .word {
+      line-height: 44px;
+      padding: 0 var(--space-100);
+      cursor: pointer;
+      display: inline-block;
+      position: relative;
+      transition: all 0.15s ease;
+      vertical-align: top;
+    }
+    
+    .word.whitespace-token {
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .word:not(.selected):hover {
+      background-color: var(--bg-tertiary);
+      border-radius: var(--r-100);
+    }
+    
+    /* 静音 */
+    .word.gap {
+      color: var(--stone-500);
+      font-size: 13px;
+      font-weight: 300;
+      padding: 0 var(--space-200);
+    }
+    .word.gap:not(.selected):hover {
+      background-color: var(--bg-tertiary);
+      border-radius: var(--r-100);
+    }
+    
+    .gap-group {
+      position: relative;
+      display: inline;
+    }
+    
+    .gap-group-collapse {
+      position: fixed;
+      left: 0;
+      top: 0;
+      transform: translateY(-50%);
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--stone-500);
+      font-size: 12px;
+      line-height: 1;
+      padding: 7px 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease, transform 120ms ease;
+      cursor: pointer;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .gap-group.expanded .gap-group-collapse,
+    .gap-group.expanded:focus-within .gap-group-collapse {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(-50%);
+    }
+    
+    .gap-group-collapse:hover,
+    .gap-group-collapse:focus-visible {
+      background: var(--stone-200);
+      color: var(--stone-700);
+    }
+    
+    .gap-group-collapse-icon {
+      display: block;
+      flex: 0 0 auto;
+    }
+    
+    .gap-collapsed-toggle {
+      cursor: pointer;
+      color: var(--stone-400);
+      border: 0;
+      border-radius: 0 !important;
+      background: var(--stone-200);
+      text-decoration: line-through;
+    }
+    
+    .gap-collapsed-toggle:hover {
+      color: var(--stone-500);
+      background: var(--stone-300);
+    }
+    
+    .gap-collapsed-toggle.auto-selected::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: var(--auto-selected);
+      pointer-events: none;
+    }
+    
+    .gap-collapsed-toggle.selected-start,
+    .gap-collapsed-toggle.selected-end,
+    .gap-collapsed-toggle.selected-start.selected-end {
+      border-radius: 0 !important;
+    }
+    
+    /* 选中删除（手动选中） */
+    .word:not(.auto-selected).selected {
+      background-color: var(--stone-200);
+      color: var(--stone-400);
+      text-decoration: line-through;
+    }
+    .word:not(.auto-selected).selected:hover {
+      background-color: var(--stone-300);
+      color: var(--stone-500);
+    }
+    
+    .word.auto-selected.selected:hover {
+      background-color: var(--stone-300);
+      color: var(--stone-500);
+    }
+    
+    .gap-group.button-hover .word.selected {
+      background-color: var(--stone-300);
+      color: var(--stone-500);
+    }
+    
+    .word.selected-start {
+      border-radius: var(--r-100) 0 0 var(--r-100);
+    }
+    .word.selected-end {
+      border-radius: 0 var(--r-100) var(--r-100) 0;
+    }
+    
+    /* 单个选中时四角圆角（优先级高于单独的 start/end） */
+    .word.selected-start.selected-end {
+      border-radius: var(--r-100);
+    }
+    
+    .word.preview-range {
+      z-index: 1;
+      background-image:
+        var(--preview-horizontal-stroke),
+        var(--preview-horizontal-stroke);
+      background-position: top left, bottom left;
+      background-repeat: no-repeat;
+      background-size: 100% var(--preview-stroke-width), 100% var(--preview-stroke-width);
+    }
+    
+    .word.preview-range.preview-start {
+      background-image:
+        var(--preview-horizontal-stroke),
+        var(--preview-horizontal-stroke),
+        var(--preview-vertical-stroke);
+      background-position: top left, bottom left, left top;
+      background-repeat: no-repeat, no-repeat, no-repeat;
+      background-size:
+        100% var(--preview-stroke-width),
+        100% var(--preview-stroke-width),
+        var(--preview-stroke-width) 100%;
+      border-radius: var(--r-100) 0 0 var(--r-100);
+    }
+    
+    .word.preview-range.preview-end {
+      background-image:
+        var(--preview-horizontal-stroke),
+        var(--preview-horizontal-stroke),
+        var(--preview-vertical-stroke);
+      background-position: top left, bottom left, right top;
+      background-repeat: no-repeat, no-repeat, no-repeat;
+      background-size:
+        100% var(--preview-stroke-width),
+        100% var(--preview-stroke-width),
+        var(--preview-stroke-width) 100%;
+      border-radius: 0 var(--r-100) var(--r-100) 0;
+    }
+    
+    .word.preview-range.preview-start.preview-end {
+      background-image:
+        var(--preview-horizontal-stroke),
+        var(--preview-horizontal-stroke),
+        var(--preview-vertical-stroke),
+        var(--preview-vertical-stroke);
+      background-position: top left, bottom left, left top, right top;
+      background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+      background-size:
+        100% var(--preview-stroke-width),
+        100% var(--preview-stroke-width),
+        var(--preview-stroke-width) 100%,
+        var(--preview-stroke-width) 100%;
+      border-radius: var(--r-100);
+    }
+    
+    .gap-collapsed-toggle.preview-range.preview-start {
+      border-radius: var(--r-100) 0 0 var(--r-100) !important;
+    }
+    
+    .gap-collapsed-toggle.preview-range.preview-end {
+      border-radius: 0 var(--r-100) var(--r-100) 0 !important;
+    }
+    
+    .gap-collapsed-toggle.preview-range.preview-start.preview-end {
+      border-radius: var(--r-100) !important;
+    }
+    
+    /* 当前播放 */
+    .word.current {
+      background-color: var(--lime-200);
+      color: var(--stone-900);
+      border-radius: var(--r-100);
+      box-shadow: 0 0 0 1px var(--stone-50);
+    }
+    
+    /* 当前播放 + 选中时，current 优先 */
+    .word.current.selected {
+      background-color: var(--lime-300) !important;
+      color: var(--stone-900) !important;
+    }
+    
+    /* AI预选（下划线），与选中状态组合时保持下划线 + 选中样式 */
+    .word.auto-selected {
+      z-index: 0;
+    }
+    .word.auto-selected::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: var(--auto-selected);
+      border-radius: 0;
+      pointer-events: none;
+    }
+    .word.auto-selected.selected {
+      background-color: var(--stone-200);
+      color: var(--stone-400);
+      text-decoration: line-through;
+    }
+    
+    /* ========== 统计栏 ========== */
+    .stats {
+      display: none; /* 隐藏右下角统计面板 */
+    }
+    
+    /* ========== Loading ========== */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-overlay);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .loading-overlay.show {
+      display: flex;
+    }
+    .loading-text {
+      font-size: 20px;
+      color: var(--text-secondary);
+    }
+    
+    /* ========== 左侧侧边栏 ========== */
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: var(--sidebar-backdrop);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.24s ease;
+      z-index: 180;
+    }
+    
+    .sidebar-backdrop.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 332px;
+      background: var(--stone-100);
+      padding: var(--space-400) var(--space-600);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-600);
+      overflow: hidden;
+      z-index: 200;
+      transition: width 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
+      box-shadow: 0 0 0 0 transparent;
+    }
+    
+    .sidebar.collapsed {
+      width: 108px;
+      transform: translateX(0);
+    }
+    
+    .sidebar.mobile-hidden {
+      transform: translateX(-100%);
+    }
+    
+    .sidebar.mobile-open {
+      transform: translateX(0);
+      box-shadow: var(--shadow-sidebar-mobile);
+    }
+    
+    .sidebar-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-600);
+      width: 100%;
+      min-width: 0;
+      padding-left: var(--space-300);
+      transition: transform 0.28s ease, opacity 0.2s ease;
+    }
+    
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    
+    .sidebar-toggle {
+      width: 44px;
+      height: 44px;
+      background: transparent;
+      border: none;
+      border-radius: var(--r-100);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--stone-700);
+      transition: background 0.15s ease, color 0.15s ease, transform 0.24s ease;
+    }
+    
+    .sidebar-toggle:hover {
+      background: var(--stone-200-hover);
+      color: var(--stone-900);
+    }
+    
+    .sidebar-toggle:focus,
+    .sidebar-toggle:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+    
+    .sidebar.collapsed .sidebar-content {
+      padding-left: 0;
+      transform: translateX(-224px);
+    }
+    
+    .sidebar.collapsed .sidebar-group,
+    .sidebar-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-400);
+    }
+    
+    .sidebar-group-title {
+      font-size: 12px;
+      line-height: 20px;
+      font-weight: 700;
+      color: var(--stone-400);
+    }
+    
+    .sidebar-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-400);
+      width: 100%;
+    }
+    
+    .sidebar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-350);
+    }
+    
+    .sidebar-label {
+      flex: 1;
+      min-width: 0;
+      color: var(--stone-900);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    
+    .legend-swatch {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      border-radius: var(--r-100);
+      background: var(--stone-200);
+    }
+    
+    .legend-swatch-auto {
+      position: relative;
+    }
+    
+    .legend-swatch-auto::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 6px;
+      border-radius: 0 0 var(--r-100) var(--r-100);
+      background: var(--auto-selected);
+    }
+    
+    .legend-swatch-selected {
+      background: var(--stone-200);
+    }
+    
+    .legend-swatch-current {
+      background: var(--lime-200);
+      border: 1px solid var(--stone-50);
+    }
+    
+    .shortcut-combo {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-100);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    
+    .shortcut-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-050);
+      height: 24px;
+      padding: 0 var(--space-200);
+      background: var(--stone-200);
+      border-radius: var(--r-100);
+      color: var(--stone-700);
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-size: 14px;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+    
+    .shortcut-pill-text {
+      padding: 0 var(--space-250);
+    }
+    
+    .shortcut-pill-icon-only {
+      width: 24px;
+      justify-content: center;
+      padding: 0;
+    }
+    
+    .shortcut-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--stone-700);
+    }
+    
+    .shortcut-plus,
+    .shortcut-or {
+      color: var(--stone-500);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    
+    /* ========== 主体内容 ========== */
+    .main-wrapper {
+      margin-left: 332px;
+      width: calc(100% - 332px);
+      min-width: 0;
+      background: var(--stone-50);
+      padding-top: var(--controls-offset, 0px);
+      transition: margin-left 0.28s ease, width 0.28s ease;
+    }
+    
+    .main-wrapper.sidebar-collapsed {
+      margin-left: 108px;
+      width: calc(100% - 108px);
+    }
+    
+    .main-wrapper.sidebar-collapsed .controls {
+      left: 108px;
+      width: calc(100% - 108px);
+    }
+    
+    .content {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: var(--space-350) var(--space-400) var(--space-700);
+      line-height: 56px;
+      font-size: 0; /* 消除inline-block单词间的空格 */
+      width: 100%;
+    }
+    
+    @media (max-width: 960px) {
+      .content {
+        max-width: 100%;
+      }
+    }
+    .content .word {
+      font-size: 18px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    .content .word.gap {
+      font-size: 14px;
+    }
+    
+    @media (max-width: 1080px) {
+      .buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-350);
+        padding: var(--space-350) var(--space-400);
+      }
+    
+      .buttons-left,
+      .buttons-right {
+        flex-wrap: wrap;
+      }
+    
+      .player {
+        padding-left: var(--space-350);
+        padding-right: var(--space-350);
+      }
+    }
+    
+    @media (max-width: 860px) {
+      .sidebar {
+        width: min(320px, calc(100vw - 28px));
+        padding: var(--space-400) var(--space-400) var(--space-500);
+      }
+    
+      .sidebar.mobile-hidden {
+        transform: translateX(-100%);
+      }
+    
+      .sidebar.collapsed {
+        transform: translateX(-100%);
+      }
+    
+      .main-wrapper,
+      .main-wrapper.sidebar-collapsed {
+        margin-left: 0;
+        width: 100%;
+      }
+    
+      .controls {
+        left: 0;
+        width: 100%;
+      }
+    
+      .controls {
+        padding: var(--space-300) var(--space-300) var(--space-350);
+      }
+    
+      .controls-topbar {
+        display: flex;
+        align-items: center;
+      }
+    
+      .buttons {
+        padding: var(--space-300) var(--space-200);
+      }
+    
+      .buttons-left,
+      .buttons-right {
+        gap: var(--space-150);
+      }
+    
+      .btn-tertiary,
+      .btn-primary,
+      .btn-secondary {
+        font-size: 14px;
+        height: 40px;
+        padding: var(--space-250) 14px;
+      }
+    
+      .content {
+        padding: var(--space-200) var(--space-300) var(--space-500);
+      }
+    
+      .sidebar-content {
+        gap: 28px;
+        padding-left: 0;
+      }
+    }
+    
+  </style>
+</head>
+
+<body>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-text">📄 正在生成 EDL...</div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
+  <!-- 左侧侧边栏 -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button
+        class="sidebar-toggle"
+        id="sidebarToggle"
+        type="button"
+        onclick="toggleSidebar()"
+        aria-label="收起侧边栏"
+      >
+        <svg class="sidebar-toggle-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M7.5 3.33333V16.6667M3.33334 5C3.33334 4.55797 3.50893 4.13405 3.82149 3.82149C4.13405 3.50893 4.55798 3.33333 5 3.33333H15C15.442 3.33333 15.866 3.50893 16.1785 3.82149C16.4911 4.13405 16.6667 4.55797 16.6667 5V15C16.6667 15.442 16.4911 15.8659 16.1785 16.1785C15.866 16.4911 15.442 16.6667 15 16.6667H5C4.55798 16.6667 4.13405 16.4911 3.82149 16.1785C3.50893 15.8659 3.33334 15.442 3.33334 15V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-content">
+      <div class="sidebar-group">
+        <p class="sidebar-group-title">颜色说明</p>
+        <div class="sidebar-list">
+          <div class="sidebar-row">
+            <span class="sidebar-label">AI预选（建议删除）</span>
+            <span class="legend-swatch legend-swatch-auto" aria-hidden="true"></span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">标记删除</span>
+            <span class="legend-swatch legend-swatch-selected" aria-hidden="true"></span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">当前播放</span>
+            <span class="legend-swatch legend-swatch-current" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-group">
+        <p class="sidebar-group-title">TIPS</p>
+        <div class="sidebar-list">
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转播放</span>
+            <span class="shortcut-pill">
+              <span class="shortcut-icon">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>单击</span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">选中/取消</span>
+            <span class="shortcut-pill">
+              <span class="shortcut-icon">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>双击</span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">批量选中/取消</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill">
+                <span class="shortcut-icon">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M2.5 2.5L8.39167 16.6417L10.4833 10.4833L16.6417 8.39167L2.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10.8333 10.8333L15.8333 15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span>拖动</span>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">区间选中/取消</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill">
+                <span class="shortcut-icon">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M7.5 7.5L11.6667 17.5L13.145 13.145L17.5 11.6667L7.5 7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M13.3925 13.3925L16.9283 16.9283" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5.99 1.86584L6.6375 4.28M4.28 6.6375L1.865 5.99M11.625 3.375L9.85667 5.14334M5.1425 9.85667L3.37583 11.625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span>单击</span>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">播放/暂停</span>
+            <span class="shortcut-pill shortcut-pill-text">Space</span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转1秒</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M14 6.76938C14 6.40755 13.6276 6.16552 13.2969 6.31248L6.02804 9.54309C5.63213 9.71905 5.63213 10.2809 6.02804 10.4569L13.2969 13.6875C13.6276 13.8345 14 13.5924 14 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span class="shortcut-or">或</span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 6.76938C5 6.40755 5.37243 6.16552 5.70307 6.31248L12.972 9.54309C13.3679 9.71905 13.3679 10.2809 12.972 10.4569L5.70307 13.6875C5.37243 13.8345 5 13.5924 5 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+          <div class="sidebar-row">
+            <span class="sidebar-label">跳转5秒</span>
+            <span class="shortcut-combo">
+              <span class="shortcut-pill shortcut-pill-text">Shift</span>
+              <span class="shortcut-plus" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4.16666V15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.16667 10H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M14 6.76938C14 6.40755 13.6276 6.16552 13.2969 6.31248L6.02804 9.54309C5.63213 9.71905 5.63213 10.2809 6.02804 10.4569L13.2969 13.6875C13.6276 13.8345 14 13.5924 14 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span class="shortcut-or">或</span>
+              <span class="shortcut-pill shortcut-pill-icon-only" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 6.76938C5 6.40755 5.37243 6.16552 5.70307 6.31248L12.972 9.54309C13.3679 9.71905 13.3679 10.2809 12.972 10.4569L5.70307 13.6875C5.37243 13.8345 5 13.5924 5 13.2306V6.76938Z" fill="currentColor"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="main-wrapper" id="mainWrapper">
+
+    <div class="controls">
+      <div class="controls-topbar">
+        <button class="mobile-sidebar-trigger" type="button" onclick="toggleSidebar()" aria-label="打开侧边栏">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M7.5 3.33333V16.6667M3.33334 5C3.33334 4.55797 3.50893 4.13405 3.82149 3.82149C4.13405 3.50893 4.55798 3.33333 5 3.33333H15C15.442 3.33333 15.866 3.50893 16.1785 3.82149C16.4911 4.13405 16.6667 4.55797 16.6667 5V15C16.6667 15.442 16.4911 15.8659 16.1785 16.1785C15.866 16.4911 15.442 16.6667 15 16.6667H5C4.55798 16.6667 4.13405 16.4911 3.82149 16.1785C3.50893 15.8659 3.33334 15.442 3.33334 15V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="buttons">
+        <div class="buttons-left">
+          <button class="btn-tertiary" onclick="saveSelection()">
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M15.8333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H13.3333L17.5 6.66667V15.8333C17.5 16.2754 17.3244 16.6993 17.0118 17.0118C16.6993 17.3244 16.2754 17.5 15.8333 17.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14.1667 17.5V10.8333H5.83333V17.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5.83333 2.5V6.66667H12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            保存
+          </button>
+          <div class="divider"></div>
+          <button class="btn-tertiary" id="undoButton" onclick="undoSelection()" disabled>
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M2.5 5.83334V10.8333M2.5 10.8333H7.5M2.5 10.8333L5 8.58333C6.37404 7.35096 8.15427 6.66854 10 6.66666C11.9891 6.66666 13.8968 7.45684 15.3033 8.86336C16.7098 10.2699 17.5 12.1775 17.5 14.1667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            撤销
+          </button>
+          <button class="btn-tertiary" id="redoButton" onclick="redoSelection()" disabled>
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M17.5 5.83334V10.8333M17.5 10.8333H12.5M17.5 10.8333L15 8.58333C13.626 7.35096 11.8457 6.66854 10 6.66666C8.01088 6.66666 6.10322 7.45684 4.6967 8.86336C3.29018 10.2699 2.5 12.1775 2.5 14.1667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            恢复
+          </button>
+          <div class="divider"></div>
+          <button class="btn-tertiary" onclick="copyDeleteList()">
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M13.3333 6.66667V5C13.3333 4.55797 13.1577 4.13405 12.8452 3.82149C12.5326 3.50893 12.1087 3.33333 11.6667 3.33333H5C4.55797 3.33333 4.13405 3.50893 3.82149 3.82149C3.50893 4.13405 3.33333 4.55797 3.33333 5V11.6667C3.33333 12.1087 3.50893 12.5326 3.82149 12.8452C4.13405 13.1577 4.55797 13.3333 5 13.3333H6.66667M6.66667 8.33333C6.66667 7.8913 6.84226 7.46738 7.15482 7.15482C7.46738 6.84226 7.8913 6.66667 8.33333 6.66667H15C15.442 6.66667 15.8659 6.84226 16.1785 7.15482C16.4911 7.46738 16.6667 7.8913 16.6667 8.33333V15C16.6667 15.442 16.4911 15.8659 16.1785 16.1785C15.8659 16.4911 15.442 16.6667 15 16.6667H8.33333C7.8913 16.6667 7.46738 16.4911 7.15482 16.1785C6.84226 15.8659 6.66667 15.442 6.66667 15V8.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            复制删除列表
+          </button>
+          <div class="divider"></div>
+          <button class="btn-tertiary danger" onclick="clearAll()">
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3.66669 5.33333H17M8.66669 8.66667V13.6667M12 8.66667V13.6667M4.50002 5.33333L5.33335 15.3333C5.33335 15.7754 5.50895 16.1993 5.82151 16.5118C6.13407 16.8244 6.55799 17 7.00002 17H13.6667C14.1087 17 14.5326 16.8244 14.8452 16.5118C15.1578 16.1993 15.3334 15.7754 15.3334 15.3333L16.1667 5.33333M7.83335 5.33333V2.83333C7.83335 2.61232 7.92115 2.40036 8.07743 2.24408C8.23371 2.0878 8.44567 2 8.66669 2H12C12.221 2 12.433 2.0878 12.5893 2.24408C12.7456 2.40036 12.8334 2.61232 12.8334 2.83333V5.33333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            清空选择
+          </button>
+        </div>
+        <div class="buttons-right">
+          <button class="btn-primary" onclick="executeCut()">
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M11.6667 2.5V5.83333C11.6667 6.05435 11.7545 6.26631 11.9107 6.42259C12.067 6.57887 12.279 6.66667 12.5 6.66667H15.8333M11.6667 2.5H5.83333C5.3913 2.5 4.96738 2.67559 4.65482 2.98816C4.34226 3.30072 4.16666 3.72464 4.16666 4.16667V15.8333C4.16666 16.2754 4.34226 16.6993 4.65482 17.0118C4.96738 17.3244 5.3913 17.5 5.83333 17.5H14.1667C14.6087 17.5 15.0326 17.3244 15.3452 17.0118C15.6577 16.6993 15.8333 16.2754 15.8333 15.8333V6.66667M11.6667 2.5L15.8333 6.66667M10 14.1667V9.16667M10 14.1667L7.91666 12.0833M10 14.1667L12.0833 12.0833" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            生成EDL
+          </button>
+          <button class="btn-secondary btn-tooltip" onclick="executeSmartCut()" data-tooltip="自动过零点剪辑(防爆音)">
+            <span class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M13.3333 15C13.7754 15 14.1993 15.1756 14.5118 15.4882C14.8244 15.8007 15 16.2246 15 16.6667C15 16.2246 15.1756 15.8007 15.4882 15.4882C15.8007 15.1756 16.2246 15 16.6667 15C16.2246 15 15.8007 14.8244 15.4882 14.5118C15.1756 14.1993 15 13.7754 15 13.3333C15 13.7754 14.8244 14.1993 14.5118 14.5118C14.1993 14.8244 13.7754 15 13.3333 15ZM13.3333 5C13.7754 5 14.1993 5.17559 14.5118 5.48815C14.8244 5.80071 15 6.22464 15 6.66667C15 6.22464 15.1756 5.80071 15.4882 5.48815C15.8007 5.17559 16.2246 5 16.6667 5C16.2246 5 15.8007 4.8244 15.4882 4.51184C15.1756 4.19928 15 3.77536 15 3.33333C15 3.77536 14.8244 4.19928 14.5118 4.51184C14.1993 4.8244 13.7754 5 13.3333 5ZM7.5 15C7.5 13.6739 8.02678 12.4021 8.96447 11.4645C9.90215 10.5268 11.1739 10 12.5 10C11.1739 10 9.90215 9.47321 8.96447 8.53553C8.02678 7.59785 7.5 6.32608 7.5 5C7.5 6.32608 6.97322 7.59785 6.03553 8.53553C5.09785 9.47321 3.82608 10 2.5 10C3.82608 10 5.09785 10.5268 6.03553 11.4645C6.97322 12.4021 7.5 13.6739 7.5 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            智能EDL
+          </button>
+        </div>
+      </div>
+      <div class="player">
+        <div class="player-top">
+          <p class="player-title" id="playerTitle">计算中...</p>
+          <div class="player-controls">
+            <div class="speed-select" id="speedSelect">
+              <select id="speed" onchange="wavesurfer.setPlaybackRate(parseFloat(this.value))">
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+              <span class="speed-chevron">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
+            <div class="play-controls">
+              <button class="play-btn-main" onclick="wavesurfer.playPause()" id="playPauseBtn">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" id="playIcon">
+                  <path d="M4 2L14 8L4 14V2Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="player-progress">
+          <div id="waveform"></div>
+          <div class="time-display">
+            <span id="currentTime">00:00</span>
+            <span id="totalTime">/ 00:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" id="content"></div>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <script>
+    // 数据注入
+    const words = [{"text":"","start":0,"end":1,"isGap":true},{"text":"","start":1,"end":2,"isGap":true},{"text":"","start":2,"end":3,"isGap":true},{"text":"","start":3,"end":4,"isGap":true},{"text":"","start":4,"end":5,"isGap":true},{"text":"","start":5,"end":6,"isGap":true},{"text":"","start":6,"end":7,"isGap":true},{"text":"","start":7,"end":8,"isGap":true},{"text":"","start":8,"end":9,"isGap":true},{"text":"","start":9,"end":10,"isGap":true},{"text":"","start":10,"end":11,"isGap":true},{"text":"","start":11,"end":12,"isGap":true},{"text":"","start":12,"end":13,"isGap":true},{"text":"","start":13,"end":14,"isGap":true},{"text":"","start":14,"end":15,"isGap":true},{"text":"","start":15,"end":16,"isGap":true},{"text":"","start":16,"end":17,"isGap":true},{"text":"","start":17,"end":18,"isGap":true},{"text":"","start":18,"end":19,"isGap":true},{"text":"","start":19,"end":20,"isGap":true},{"text":"","start":20,"end":21,"isGap":true},{"text":"","start":21,"end":22,"isGap":true},{"text":"","start":22,"end":23,"isGap":true},{"text":"","start":23,"end":24,"isGap":true},{"text":"","start":24,"end":25,"isGap":true},{"text":"","start":25,"end":26,"isGap":true},{"text":"","start":26,"end":27,"isGap":true},{"text":"","start":27,"end":28,"isGap":true},{"text":"","start":28,"end":29,"isGap":true},{"text":"","start":29,"end":30,"isGap":true},{"text":"","start":30,"end":31,"isGap":true},{"text":"","start":31,"end":32,"isGap":true},{"text":"","start":32,"end":33,"isGap":true},{"text":"","start":33,"end":34,"isGap":true},{"text":"","start":34,"end":35,"isGap":true},{"text":"","start":35,"end":36,"isGap":true},{"text":"","start":36,"end":37,"isGap":true},{"text":"","start":37,"end":38,"isGap":true},{"text":"","start":38,"end":38.52,"isGap":true},{"text":"我","start":38.52,"end":38.56,"isGap":false},{"text":"们","start":38.56,"end":38.76,"isGap":false},{"text":"进","start":38.76,"end":38.96,"isGap":false},{"text":"入","start":38.96,"end":39.08,"isGap":false},{"text":"第","start":39.12,"end":39.36,"isGap":false},{"text":"三","start":39.36,"end":39.64,"isGap":false},{"text":"个","start":39.64,"end":39.8,"isGap":false},{"text":"故","start":39.8,"end":40,"isGap":false},{"text":"事","start":40.04,"end":40.7,"isGap":false},{"text":"","start":40.7,"end":41.7,"isGap":true},{"text":"","start":41.7,"end":42.7,"isGap":true},{"text":"","start":42.7,"end":43.04,"isGap":true},{"text":"the","start":43.04,"end":43.36,"isGap":false},{"text":" ","start":43.36,"end":43.36,"isGap":false},{"text":"procedure","start":43.36,"end":44.74,"isGap":false},{"text":"","start":44.74,"end":45.74,"isGap":true},{"text":"","start":45.74,"end":46.74,"isGap":true},{"text":"","start":46.74,"end":47.74,"isGap":true},{"text":"","start":47.74,"end":48.74,"isGap":true},{"text":"","start":48.74,"end":49.08,"isGap":true},{"text":"过","start":49.08,"end":49.28,"isGap":false},{"text":"","start":49.28,"end":49.4,"isGap":true},{"text":"程","start":49.4,"end":49.88,"isGap":false},{"text":"","start":49.88,"end":50.88,"isGap":true},{"text":"","start":50.88,"end":51.88,"isGap":true},{"text":"","start":51.88,"end":52.88,"isGap":true},{"text":"","start":52.88,"end":53.88,"isGap":true},{"text":"","start":53.88,"end":54.88,"isGap":true},{"text":"","start":54.88,"end":55.88,"isGap":true},{"text":"","start":55.88,"end":56.88,"isGap":true},{"text":"","start":56.88,"end":57.88,"isGap":true},{"text":"","start":57.88,"end":58.88,"isGap":true},{"text":"","start":58.88,"end":59.88,"isGap":true},{"text":"","start":59.88,"end":60.88,"isGap":true},{"text":"","start":60.88,"end":61.88,"isGap":true},{"text":"","start":61.88,"end":62.88,"isGap":true},{"text":"","start":62.88,"end":63.88,"isGap":true},{"text":"","start":63.88,"end":64.88,"isGap":true},{"text":"","start":64.88,"end":65.88,"isGap":true},{"text":"","start":65.88,"end":66.88,"isGap":true},{"text":"","start":66.88,"end":67.88,"isGap":true},{"text":"","start":67.88,"end":68.88,"isGap":true},{"text":"","start":68.88,"end":69.88,"isGap":true},{"text":"","start":69.88,"end":70.88,"isGap":true},{"text":"","start":70.88,"end":71.88,"isGap":true},{"text":"","start":71.88,"end":72.88,"isGap":true},{"text":"","start":72.88,"end":73.88,"isGap":true},{"text":"","start":73.88,"end":74.88,"isGap":true},{"text":"","start":74.88,"end":75.88,"isGap":true},{"text":"","start":75.88,"end":76.48,"isGap":true},{"text":"the","start":76.48,"end":76.8,"isGap":false},{"text":" ","start":76.8,"end":76.8,"isGap":false},{"text":"procedure","start":76.84,"end":77.68,"isGap":false},{"text":"","start":77.68,"end":78.08,"isGap":true},{"text":"手","start":78.08,"end":78.36,"isGap":false},{"text":"术","start":78.4,"end":78.94,"isGap":false},{"text":"","start":78.94,"end":79.94,"isGap":true},{"text":"","start":79.94,"end":80.94,"isGap":true},{"text":"","start":80.94,"end":81.94,"isGap":true},{"text":"","start":81.94,"end":82.94,"isGap":true},{"text":"","start":82.94,"end":83.94,"isGap":true},{"text":"","start":83.94,"end":84.94,"isGap":true},{"text":"","start":84.94,"end":85.94,"isGap":true},{"text":"","start":85.94,"end":86.94,"isGap":true},{"text":"","start":86.94,"end":87.16,"isGap":true},{"text":"the","start":87.16,"end":87.52,"isGap":false},{"text":" ","start":87.52,"end":87.52,"isGap":false},{"text":"procedure","start":87.56,"end":88.4,"isGap":false},{"text":"","start":88.4,"end":88.56,"isGap":true},{"text":"流","start":88.56,"end":88.76,"isGap":false},{"text":"","start":88.76,"end":88.92,"isGap":true},{"text":"程","start":88.92,"end":89.58,"isGap":false},{"text":"","start":89.58,"end":90.58,"isGap":true},{"text":"","start":90.58,"end":91.58,"isGap":true},{"text":"","start":91.58,"end":92.58,"isGap":true},{"text":"","start":92.58,"end":93.58,"isGap":true},{"text":"","start":93.58,"end":94.58,"isGap":true},{"text":"","start":94.58,"end":95.58,"isGap":true},{"text":"","start":95.58,"end":96.56,"isGap":true},{"text":"一","start":96.56,"end":96.8,"isGap":false},{"text":"场","start":96.8,"end":97.08,"isGap":false},{"text":"","start":97.08,"end":97.2,"isGap":true},{"text":"离","start":97.2,"end":97.44,"isGap":false},{"text":"奇","start":97.44,"end":97.64,"isGap":false},{"text":"的","start":97.64,"end":97.84,"isGap":false},{"text":"手","start":97.84,"end":98.08,"isGap":false},{"text":"术","start":98.12,"end":98.36,"isGap":false},{"text":"以","start":98.4,"end":98.76,"isGap":false},{"text":"","start":98.76,"end":98.88,"isGap":true},{"text":"流","start":98.88,"end":99.12,"isGap":false},{"text":"血","start":99.16,"end":99.4,"isGap":false},{"text":"收","start":99.44,"end":99.6,"isGap":false},{"text":"场","start":99.64,"end":100.14,"isGap":false},{"text":"","start":100.14,"end":101.14,"isGap":true},{"text":"","start":101.14,"end":102.14,"isGap":true},{"text":"","start":102.14,"end":103.14,"isGap":true},{"text":"","start":103.14,"end":104.14,"isGap":true},{"text":"","start":104.14,"end":105.14,"isGap":true},{"text":"","start":105.14,"end":105.4,"isGap":true},{"text":"好","start":105.4,"end":105.68,"isGap":false},{"text":"血","start":105.68,"end":105.96,"isGap":false},{"text":"腥","start":106.04,"end":106.24,"isGap":false},{"text":"啊","start":106.24,"end":106.4,"isGap":false},{"text":"这","start":106.4,"end":106.56,"isGap":false},{"text":"一","start":106.56,"end":106.68,"isGap":false},{"text":"张","start":106.68,"end":107.18,"isGap":false},{"text":"","start":107.18,"end":108.18,"isGap":true},{"text":"","start":108.18,"end":109.18,"isGap":true},{"text":"","start":109.18,"end":110.18,"isGap":true},{"text":"","start":110.18,"end":111.18,"isGap":true},{"text":"","start":111.18,"end":112.18,"isGap":true},{"text":"","start":112.18,"end":112.8,"isGap":true},{"text":"这","start":112.8,"end":113,"isGap":false},{"text":"里","start":113,"end":113.12,"isGap":false},{"text":"怎","start":113.12,"end":113.28,"isGap":false},{"text":"么","start":113.28,"end":113.4,"isGap":false},{"text":"有","start":113.4,"end":113.72,"isGap":false},{"text":"","start":113.72,"end":114.44,"isGap":true},{"text":"呃","start":114.44,"end":114.84,"isGap":false},{"text":"那","start":114.84,"end":114.96,"isGap":false},{"text":"个","start":114.96,"end":115.08,"isGap":false},{"text":"经","start":115.08,"end":115.24,"isGap":false},{"text":"偶","start":115.24,"end":115.4,"isGap":false},{"text":"像","start":115.4,"end":115.6,"isGap":false},{"text":"控","start":115.6,"end":115.76,"isGap":false},{"text":"制","start":115.76,"end":115.88,"isGap":false},{"text":"器","start":115.92,"end":116.08,"isGap":false},{"text":"的","start":116.08,"end":116.2,"isGap":false},{"text":"标","start":116.2,"end":116.4,"isGap":false},{"text":"志","start":116.44,"end":116.6,"isGap":false},{"text":"啊","start":116.6,"end":117.06,"isGap":false},{"text":"","start":117.06,"end":118.06,"isGap":true},{"text":"","start":118.06,"end":118.56,"isGap":true},{"text":"增","start":118.56,"end":118.88,"isGap":false},{"text":"加","start":118.88,"end":119.16,"isGap":false},{"text":"","start":119.16,"end":119.32,"isGap":true},{"text":"和","start":119.32,"end":119.6,"isGap":false},{"text":"减","start":119.64,"end":119.88,"isGap":false},{"text":"","start":119.88,"end":120.04,"isGap":true},{"text":"少","start":120.04,"end":120.32,"isGap":false},{"text":"黑","start":120.36,"end":120.76,"isGap":false},{"text":"","start":120.76,"end":120.92,"isGap":true},{"text":"白","start":120.92,"end":121.58,"isGap":false},{"text":"","start":121.58,"end":122.48,"isGap":true},{"text":"这","start":122.48,"end":122.68,"isGap":false},{"text":"个","start":122.68,"end":122.8,"isGap":false},{"text":"是","start":122.8,"end":123.16,"isGap":false},{"text":"how","start":123.16,"end":123.36,"isGap":false},{"text":" ","start":123.36,"end":123.36,"isGap":false},{"text":"many","start":123.4,"end":123.56,"isGap":false},{"text":" ","start":123.56,"end":123.56,"isGap":false},{"text":"foundation","start":123.56,"end":124.2,"isGap":false},{"text":"吧","start":124.24,"end":124.82,"isGap":false},{"text":"","start":124.82,"end":125.82,"isGap":true},{"text":"","start":125.82,"end":126.24,"isGap":true},{"text":"那","start":126.24,"end":126.28,"isGap":false},{"text":"个","start":126.28,"end":126.36,"isGap":false},{"text":"和","start":126.36,"end":126.56,"isGap":false},{"text":"谐","start":126.56,"end":126.72,"isGap":false},{"text":"基","start":126.72,"end":126.84,"isGap":false},{"text":"金","start":126.84,"end":127,"isGap":false},{"text":"会","start":127,"end":127.28,"isGap":false},{"text":"","start":127.28,"end":128.16,"isGap":true},{"text":"外","start":128.16,"end":128.36,"isGap":false},{"text":"面","start":128.36,"end":128.48,"isGap":false},{"text":"围","start":128.48,"end":128.68,"isGap":false},{"text":"墙","start":128.68,"end":128.92,"isGap":false},{"text":"看","start":128.92,"end":129.12,"isGap":false},{"text":"着","start":129.12,"end":129.2,"isGap":false},{"text":"也","start":129.2,"end":129.36,"isGap":false},{"text":"像","start":129.36,"end":129.6,"isGap":false},{"text":"这","start":129.68,"end":129.84,"isGap":false},{"text":"个","start":129.84,"end":130,"isGap":false},{"text":"人","start":130,"end":130.66,"isGap":false},{"text":"","start":130.66,"end":131.66,"isGap":true},{"text":"","start":131.66,"end":132.12,"isGap":true},{"text":"i","start":132.12,"end":132.4,"isGap":false},{"text":" ","start":132.4,"end":132.4,"isGap":false},{"text":"can't","start":132.4,"end":132.68,"isGap":false},{"text":" ","start":132.68,"end":132.68,"isGap":false},{"text":"believe","start":132.68,"end":133,"isGap":false},{"text":" ","start":133,"end":133,"isGap":false},{"text":"it","start":133,"end":133.36,"isGap":false},{"text":" ","start":133.36,"end":133.36,"isGap":false},{"text":"","start":133.36,"end":134.36,"isGap":true},{"text":"","start":134.36,"end":134.4,"isGap":true},{"text":"we","start":134.4,"end":134.64,"isGap":false},{"text":" ","start":134.64,"end":134.64,"isGap":false},{"text":"were","start":134.64,"end":134.84,"isGap":false},{"text":" ","start":134.84,"end":134.84,"isGap":false},{"text":"so","start":134.84,"end":135.24,"isGap":false},{"text":" ","start":135.24,"end":135.24,"isGap":false},{"text":"close","start":135.28,"end":135.68,"isGap":false},{"text":"","start":135.68,"end":136.68,"isGap":true},{"text":"","start":136.68,"end":136.72,"isGap":true},{"text":"我","start":136.72,"end":137.08,"isGap":false},{"text":"不","start":137.08,"end":137.24,"isGap":false},{"text":"敢","start":137.24,"end":137.4,"isGap":false},{"text":"相","start":137.44,"end":137.72,"isGap":false},{"text":"信","start":137.76,"end":138.08,"isGap":false},{"text":"我","start":138.08,"end":138.4,"isGap":false},{"text":"们","start":138.4,"end":138.56,"isGap":false},{"text":"只","start":138.56,"end":138.68,"isGap":false},{"text":"差","start":138.72,"end":138.88,"isGap":false},{"text":"那","start":138.92,"end":139.04,"isGap":false},{"text":"么","start":139.04,"end":139.12,"isGap":false},{"text":"一","start":139.12,"end":139.2,"isGap":false},{"text":"点","start":139.2,"end":139.44,"isGap":false},{"text":"了","start":139.44,"end":139.98,"isGap":false},{"text":"","start":139.98,"end":140.98,"isGap":true},{"text":"","start":140.98,"end":141.98,"isGap":true},{"text":"","start":141.98,"end":142.98,"isGap":true},{"text":"","start":142.98,"end":143.98,"isGap":true},{"text":"","start":143.98,"end":144.98,"isGap":true},{"text":"","start":144.98,"end":145.98,"isGap":true},{"text":"","start":145.98,"end":146.92,"isGap":true},{"text":"dear","start":146.92,"end":147.16,"isGap":false},{"text":" ","start":147.16,"end":147.16,"isGap":false},{"text":"decedent","start":147.2,"end":148.16,"isGap":false},{"text":" ","start":148.16,"end":148.16,"isGap":false},{"text":"hall","start":148.16,"end":148.78,"isGap":false},{"text":"","start":148.78,"end":149.78,"isGap":true},{"text":"","start":149.78,"end":150.78,"isGap":true},{"text":"","start":150.78,"end":151.78,"isGap":true},{"text":"","start":151.78,"end":152.78,"isGap":true},{"text":"","start":152.78,"end":153.78,"isGap":true},{"text":"","start":153.78,"end":154.78,"isGap":true},{"text":"","start":154.78,"end":155.78,"isGap":true},{"text":"","start":155.78,"end":156.78,"isGap":true},{"text":"","start":156.78,"end":157.78,"isGap":true},{"text":"","start":157.78,"end":158.78,"isGap":true},{"text":"","start":158.78,"end":159.78,"isGap":true},{"text":"","start":159.78,"end":160.78,"isGap":true},{"text":"","start":160.78,"end":161.78,"isGap":true},{"text":"","start":161.78,"end":162.78,"isGap":true},{"text":"","start":162.78,"end":163.78,"isGap":true},{"text":"","start":163.78,"end":164.78,"isGap":true},{"text":"","start":164.78,"end":165.78,"isGap":true},{"text":"","start":165.78,"end":166.78,"isGap":true},{"text":"","start":166.78,"end":167.78,"isGap":true},{"text":"","start":167.78,"end":168.78,"isGap":true},{"text":"","start":168.78,"end":169.78,"isGap":true},{"text":"","start":169.78,"end":170.52,"isGap":true},{"text":"亲","start":170.52,"end":170.76,"isGap":false},{"text":"爱","start":170.76,"end":170.92,"isGap":false},{"text":"的","start":170.92,"end":171.08,"isGap":false},{"text":"ho","start":171.08,"end":171.66,"isGap":false},{"text":"","start":171.66,"end":172.66,"isGap":true},{"text":"","start":172.66,"end":173.66,"isGap":true},{"text":"","start":173.66,"end":174.66,"isGap":true},{"text":"","start":174.66,"end":175.66,"isGap":true},{"text":"","start":175.66,"end":176.66,"isGap":true},{"text":"","start":176.66,"end":177.66,"isGap":true},{"text":"","start":177.66,"end":178.66,"isGap":true},{"text":"","start":178.66,"end":179.66,"isGap":true},{"text":"","start":179.66,"end":180.66,"isGap":true},{"text":"","start":180.66,"end":181.66,"isGap":true},{"text":"","start":181.66,"end":182.66,"isGap":true},{"text":"","start":182.66,"end":183.66,"isGap":true},{"text":"","start":183.66,"end":184.08,"isGap":true},{"text":"我","start":184.08,"end":184.12,"isGap":false},{"text":"很","start":184.12,"end":184.28,"isGap":false},{"text":"高","start":184.28,"end":184.52,"isGap":false},{"text":"兴","start":184.52,"end":184.68,"isGap":false},{"text":"地","start":184.68,"end":184.88,"isGap":false},{"text":"通","start":184.88,"end":185.12,"isGap":false},{"text":"知","start":185.12,"end":185.28,"isGap":false},{"text":"您","start":185.28,"end":185.56,"isGap":false},{"text":"您","start":185.56,"end":185.76,"isGap":false},{"text":"已","start":185.76,"end":185.88,"isGap":false},{"text":"经","start":185.88,"end":186.04,"isGap":false},{"text":"被","start":186.04,"end":186.28,"isGap":false},{"text":"选","start":186.32,"end":186.6,"isGap":false},{"text":"中","start":186.68,"end":187,"isGap":false},{"text":"能","start":187,"end":187.2,"isGap":false},{"text":"够","start":187.2,"end":187.36,"isGap":false},{"text":"参","start":187.4,"end":187.64,"isGap":false},{"text":"与","start":187.68,"end":188,"isGap":false},{"text":"","start":188,"end":188.36,"isGap":true},{"text":"和","start":188.36,"end":188.64,"isGap":false},{"text":"谐","start":188.64,"end":188.8,"isGap":false},{"text":"基","start":188.84,"end":188.96,"isGap":false},{"text":"金","start":188.96,"end":189.12,"isGap":false},{"text":"会","start":189.16,"end":189.44,"isGap":false},{"text":"首","start":189.52,"end":189.76,"isGap":false},{"text":"次","start":189.84,"end":190.16,"isGap":false},{"text":"的","start":190.16,"end":190.4,"isGap":false},{"text":"","start":190.4,"end":191.4,"isGap":true},{"text":"","start":191.4,"end":191.72,"isGap":true},{"text":"新","start":191.72,"end":192.2,"isGap":false},{"text":"","start":192.2,"end":192.32,"isGap":true},{"text":"黎","start":192.32,"end":192.6,"isGap":false},{"text":"明","start":192.6,"end":193.18,"isGap":false},{"text":"","start":193.18,"end":193.4,"isGap":true},{"text":"手","start":193.4,"end":193.64,"isGap":false},{"text":"术","start":193.64,"end":194.2,"isGap":false},{"text":"","start":194.2,"end":195.2,"isGap":true},{"text":"","start":195.2,"end":196.2,"isGap":true},{"text":"","start":196.2,"end":196.68,"isGap":true},{"text":"new","start":196.68,"end":196.96,"isGap":false},{"text":" ","start":196.96,"end":196.96,"isGap":false},{"text":"door","start":197.04,"end":197.58,"isGap":false},{"text":"","start":197.58,"end":198.58,"isGap":true},{"text":"","start":198.58,"end":199.58,"isGap":true},{"text":"","start":199.58,"end":200.58,"isGap":true},{"text":"","start":200.58,"end":201,"isGap":true},{"text":"起","start":201,"end":201.12,"isGap":false},{"text":"来","start":201.12,"end":201.48,"isGap":false},{"text":"很","start":201.48,"end":201.76,"isGap":false},{"text":"可","start":201.76,"end":202.16,"isGap":false},{"text":"疑","start":202.16,"end":202.4,"isGap":false},{"text":"啊","start":202.4,"end":203.02,"isGap":false},{"text":"","start":203.02,"end":203.16,"isGap":true},{"text":"这","start":203.16,"end":203.4,"isGap":false},{"text":"个","start":203.4,"end":203.56,"isGap":false},{"text":"new","start":203.56,"end":203.76,"isGap":false},{"text":" ","start":203.76,"end":203.76,"isGap":false},{"text":"door","start":203.76,"end":203.96,"isGap":false},{"text":"这","start":204,"end":204.16,"isGap":false},{"text":"个","start":204.16,"end":204.28,"isGap":false},{"text":"词","start":204.28,"end":204.64,"isGap":false},{"text":"呢","start":204.64,"end":205.08,"isGap":false},{"text":"在","start":205.08,"end":205.32,"isGap":false},{"text":"前","start":205.36,"end":205.56,"isGap":false},{"text":"面","start":205.56,"end":205.76,"isGap":false},{"text":"出","start":205.8,"end":206.04,"isGap":false},{"text":"现","start":206.04,"end":206.28,"isGap":false},{"text":"过","start":206.28,"end":206.86,"isGap":false},{"text":"","start":206.86,"end":207.08,"isGap":true},{"text":"就","start":207.08,"end":207.32,"isGap":false},{"text":"是","start":207.32,"end":207.68,"isGap":false},{"text":"在","start":207.68,"end":208.04,"isGap":false},{"text":"那","start":208.12,"end":208.32,"isGap":false},{"text":"个","start":208.32,"end":208.6,"isGap":false},{"text":"","start":208.6,"end":208.92,"isGap":true},{"text":"历","start":208.92,"end":209.12,"isGap":false},{"text":"史","start":209.12,"end":209.28,"isGap":false},{"text":"学","start":209.28,"end":209.48,"isGap":false},{"text":"家","start":209.48,"end":209.72,"isGap":false},{"text":"埋","start":209.76,"end":210,"isGap":false},{"text":"人","start":210,"end":210.24,"isGap":false},{"text":"的","start":210.24,"end":210.4,"isGap":false},{"text":"那","start":210.4,"end":210.56,"isGap":false},{"text":"个","start":210.56,"end":211.14,"isGap":false},{"text":"","start":211.14,"end":211.84,"isGap":true},{"text":"那","start":211.84,"end":212.04,"isGap":false},{"text":"一","start":212.04,"end":212.12,"isGap":false},{"text":"章","start":212.12,"end":212.32,"isGap":false},{"text":"节","start":212.36,"end":212.52,"isGap":false},{"text":"里","start":212.52,"end":212.72,"isGap":false},{"text":"他","start":212.72,"end":212.88,"isGap":false},{"text":"说","start":212.88,"end":213.08,"isGap":false},{"text":"过","start":213.08,"end":213.12,"isGap":false},{"text":"一","start":213.12,"end":213.24,"isGap":false},{"text":"句","start":213.24,"end":213.36,"isGap":false},{"text":"话","start":213.36,"end":213.56,"isGap":false},{"text":"他","start":213.56,"end":213.8,"isGap":false},{"text":"说","start":213.8,"end":214.04,"isGap":false},{"text":"","start":214.04,"end":214.44,"isGap":true},{"text":"在","start":214.44,"end":215.14,"isGap":false},{"text":"","start":215.14,"end":216.14,"isGap":true},{"text":"","start":216.14,"end":216.44,"isGap":true},{"text":"黎","start":216.44,"end":216.72,"isGap":false},{"text":"明","start":216.72,"end":217,"isGap":false},{"text":"","start":217,"end":217.12,"isGap":true},{"text":"开","start":217.12,"end":217.4,"isGap":false},{"text":"始","start":217.4,"end":217.64,"isGap":false},{"text":"之","start":217.64,"end":217.8,"isGap":false},{"text":"前","start":217.8,"end":218.4,"isGap":false},{"text":"夜","start":218.4,"end":218.6,"isGap":false},{"text":"晚","start":218.6,"end":218.76,"isGap":false},{"text":"必","start":218.8,"end":218.92,"isGap":false},{"text":"须","start":218.92,"end":219.08,"isGap":false},{"text":"降","start":219.12,"end":219.32,"isGap":false},{"text":"临","start":219.36,"end":219.72,"isGap":false},{"text":"也","start":219.72,"end":219.92,"isGap":false},{"text":"是","start":219.92,"end":220.04,"isGap":false},{"text":"用","start":220.04,"end":220.16,"isGap":false},{"text":"的","start":220.16,"end":220.28,"isGap":false},{"text":"这","start":220.28,"end":220.44,"isGap":false},{"text":"一","start":220.44,"end":220.56,"isGap":false},{"text":"样","start":220.56,"end":220.76,"isGap":false},{"text":"的","start":220.76,"end":220.88,"isGap":false},{"text":"这","start":220.88,"end":221,"isGap":false},{"text":"个","start":221,"end":221.12,"isGap":false},{"text":"词","start":221.12,"end":221.32,"isGap":false},{"text":"new","start":221.32,"end":221.52,"isGap":false},{"text":" ","start":221.52,"end":221.52,"isGap":false},{"text":"door","start":221.52,"end":222.14,"isGap":false},{"text":"","start":222.14,"end":223.14,"isGap":true},{"text":"","start":223.14,"end":224.14,"isGap":true},{"text":"","start":224.14,"end":224.92,"isGap":true},{"text":"请","start":224.92,"end":225.2,"isGap":false},{"text":"","start":225.2,"end":225.36,"isGap":true},{"text":"携","start":225.36,"end":225.56,"isGap":false},{"text":"带","start":225.56,"end":225.8,"isGap":false},{"text":"此","start":225.84,"end":226.08,"isGap":false},{"text":"信","start":226.12,"end":226.66,"isGap":false},{"text":"","start":226.66,"end":227.32,"isGap":true},{"text":"呃","start":227.32,"end":227.8,"isGap":false},{"text":"这","start":227.84,"end":228,"isGap":false},{"text":"个","start":228,"end":228.2,"isGap":false},{"text":"信","start":228.24,"end":228.48,"isGap":false},{"text":"背","start":228.48,"end":228.68,"isGap":false},{"text":"后","start":228.68,"end":228.92,"isGap":false},{"text":"有","start":228.92,"end":229.12,"isGap":false},{"text":"日","start":229.12,"end":229.28,"isGap":false},{"text":"程","start":229.28,"end":229.48,"isGap":false},{"text":"表","start":229.48,"end":229.98,"isGap":false},{"text":"","start":229.98,"end":230.98,"isGap":true},{"text":"","start":230.98,"end":231.98,"isGap":true},{"text":"","start":231.98,"end":232.98,"isGap":true},{"text":"","start":232.98,"end":233.98,"isGap":true},{"text":"","start":233.98,"end":234.52,"isGap":true},{"text":"在","start":234.52,"end":234.88,"isGap":false},{"text":"","start":234.88,"end":235.24,"isGap":true},{"text":"星","start":235.24,"end":235.44,"isGap":false},{"text":"期","start":235.44,"end":235.56,"isGap":false},{"text":"五","start":235.6,"end":235.84,"isGap":false},{"text":"前","start":235.92,"end":236.2,"isGap":false},{"text":"往","start":236.2,"end":236.48,"isGap":false},{"text":"这","start":236.52,"end":236.68,"isGap":false},{"text":"个","start":236.68,"end":236.96,"isGap":false},{"text":"","start":236.96,"end":237.92,"isGap":true},{"text":"治","start":237.92,"end":238.04,"isGap":false},{"text":"疗","start":238.04,"end":238.2,"isGap":false},{"text":"中","start":238.24,"end":238.44,"isGap":false},{"text":"心","start":238.44,"end":239.02,"isGap":false},{"text":"","start":239.02,"end":240.02,"isGap":true},{"text":"","start":240.02,"end":241.02,"isGap":true},{"text":"","start":241.02,"end":242.02,"isGap":true},{"text":"","start":242.02,"end":243.02,"isGap":true},{"text":"","start":243.02,"end":244.02,"isGap":true},{"text":"","start":244.02,"end":244.24,"isGap":true},{"text":"为","start":244.24,"end":244.44,"isGap":false},{"text":"了","start":244.44,"end":244.64,"isGap":false},{"text":"确","start":244.68,"end":244.92,"isGap":false},{"text":"保","start":244.96,"end":245.2,"isGap":false},{"text":"","start":245.2,"end":246.2,"isGap":true},{"text":"","start":246.2,"end":246.24,"isGap":true},{"text":"识","start":246.24,"end":246.52,"isGap":false},{"text":"别","start":246.52,"end":246.76,"isGap":false},{"text":"准","start":246.8,"end":247,"isGap":false},{"text":"确","start":247.04,"end":247.62,"isGap":false},{"text":"","start":247.62,"end":248.52,"isGap":true},{"text":"你","start":248.52,"end":248.56,"isGap":false},{"text":"也","start":248.56,"end":248.8,"isGap":false},{"text":"需","start":248.84,"end":249.08,"isGap":false},{"text":"要","start":249.08,"end":249.32,"isGap":false},{"text":"带","start":249.32,"end":249.6,"isGap":false},{"text":"","start":249.6,"end":249.72,"isGap":true},{"text":"一","start":249.72,"end":249.96,"isGap":false},{"text":"个","start":249.96,"end":250.32,"isGap":false},{"text":"","start":250.32,"end":251.32,"isGap":true},{"text":"","start":251.32,"end":251.44,"isGap":true},{"text":"你","start":251.44,"end":251.72,"isGap":false},{"text":"所","start":251.72,"end":251.92,"isGap":false},{"text":"爱","start":251.96,"end":252.24,"isGap":false},{"text":"的","start":252.24,"end":252.44,"isGap":false},{"text":"人","start":252.44,"end":252.68,"isGap":false},{"text":"的","start":252.68,"end":253,"isGap":false},{"text":"","start":253,"end":253.16,"isGap":true},{"text":"照","start":253.16,"end":253.36,"isGap":false},{"text":"片","start":253.36,"end":253.98,"isGap":false},{"text":"","start":253.98,"end":254.98,"isGap":true},{"text":"","start":254.98,"end":255.98,"isGap":true},{"text":"","start":255.98,"end":256.98,"isGap":true},{"text":"","start":256.98,"end":257.98,"isGap":true},{"text":"","start":257.98,"end":258.84,"isGap":true},{"text":"并","start":258.84,"end":259.08,"isGap":false},{"text":"在","start":259.12,"end":259.4,"isGap":false},{"text":"这","start":259.44,"end":259.64,"isGap":false},{"text":"封","start":259.64,"end":259.8,"isGap":false},{"text":"信","start":259.8,"end":259.84,"isGap":false},{"text":"","start":259.84,"end":260.28,"isGap":true},{"text":"这","start":260.28,"end":260.86,"isGap":false},{"text":"","start":260.86,"end":261.24,"isGap":true},{"text":"并","start":261.24,"end":261.44,"isGap":false},{"text":"在","start":261.48,"end":261.72,"isGap":false},{"text":"这","start":261.72,"end":261.92,"isGap":false},{"text":"张","start":261.92,"end":262.12,"isGap":false},{"text":"照","start":262.12,"end":262.28,"isGap":false},{"text":"片","start":262.32,"end":262.48,"isGap":false},{"text":"的","start":262.48,"end":262.64,"isGap":false},{"text":"背","start":262.64,"end":262.84,"isGap":false},{"text":"后","start":262.84,"end":263.5,"isGap":false},{"text":"","start":263.5,"end":263.6,"isGap":true},{"text":"写","start":263.6,"end":263.8,"isGap":false},{"text":"下","start":263.8,"end":264,"isGap":false},{"text":"一","start":264,"end":264.08,"isGap":false},{"text":"个","start":264.08,"end":264.24,"isGap":false},{"text":"简","start":264.24,"end":264.44,"isGap":false},{"text":"短","start":264.48,"end":264.72,"isGap":false},{"text":"的","start":264.72,"end":265.08,"isGap":false},{"text":"","start":265.08,"end":265.24,"isGap":true},{"text":"信","start":265.24,"end":265.44,"isGap":false},{"text":"息","start":265.44,"end":265.98,"isGap":false},{"text":"","start":265.98,"end":266.98,"isGap":true},{"text":"","start":266.98,"end":267.98,"isGap":true},{"text":"","start":267.98,"end":268,"isGap":true},{"text":"永","start":268,"end":268.16,"isGap":false},{"text":"远","start":268.16,"end":268.32,"isGap":false},{"text":"祝","start":268.4,"end":268.6,"isGap":false},{"text":"福","start":268.6,"end":269.18,"isGap":false},{"text":"","start":269.18,"end":270.18,"isGap":true},{"text":"","start":270.18,"end":271.18,"isGap":true},{"text":"","start":271.18,"end":272.16,"isGap":true},{"text":"这","start":272.16,"end":272.36,"isGap":false},{"text":"个","start":272.36,"end":272.48,"isGap":false},{"text":"签","start":272.52,"end":272.72,"isGap":false},{"text":"名","start":272.72,"end":272.88,"isGap":false},{"text":"看","start":272.92,"end":273.08,"isGap":false},{"text":"不","start":273.08,"end":273.2,"isGap":false},{"text":"太","start":273.2,"end":273.36,"isGap":false},{"text":"清","start":273.4,"end":273.64,"isGap":false},{"text":"楚","start":273.68,"end":274.22,"isGap":false},{"text":"","start":274.22,"end":275.22,"isGap":true},{"text":"","start":275.22,"end":276.22,"isGap":true},{"text":"","start":276.22,"end":276.52,"isGap":true},{"text":"有","start":276.52,"end":276.72,"isGap":false},{"text":"点","start":276.72,"end":276.92,"isGap":false},{"text":"像","start":276.96,"end":277.28,"isGap":false},{"text":"","start":277.28,"end":278.04,"isGap":true},{"text":"en","start":278.04,"end":278.8,"isGap":false},{"text":"","start":278.8,"end":279,"isGap":true},{"text":"还","start":279,"end":279.24,"isGap":false},{"text":"是","start":279.24,"end":279.36,"isGap":false},{"text":"什","start":279.36,"end":279.52,"isGap":false},{"text":"么","start":279.52,"end":279.64,"isGap":false},{"text":"的","start":279.64,"end":280.14,"isGap":false},{"text":"","start":280.14,"end":281.14,"isGap":true},{"text":"","start":281.14,"end":281.76,"isGap":true},{"text":"这","start":281.76,"end":281.92,"isGap":false},{"text":"一","start":281.92,"end":282.04,"isGap":false},{"text":"张","start":282.04,"end":282.2,"isGap":false},{"text":"纸","start":282.28,"end":282.44,"isGap":false},{"text":"应","start":282.44,"end":282.56,"isGap":false},{"text":"该","start":282.56,"end":282.68,"isGap":false},{"text":"是","start":282.68,"end":282.8,"isGap":false},{"text":"日","start":282.8,"end":282.96,"isGap":false},{"text":"程","start":282.96,"end":283.16,"isGap":false},{"text":"表","start":283.2,"end":283.66,"isGap":false},{"text":"","start":283.66,"end":284.66,"isGap":true},{"text":"","start":284.66,"end":285.66,"isGap":true},{"text":"","start":285.66,"end":286.44,"isGap":true},{"text":"7:45","start":286.44,"end":287.2,"isGap":false},{"text":"到","start":287.2,"end":287.36,"isGap":false},{"text":"达","start":287.36,"end":287.86,"isGap":false}];
+    const autoSelected = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,48,49,54,55,56,57,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,95,96,97,98,99,100,101,102,111,112,113,114,115,116,117,132,133,134,135,136,141,145,146,147,148,149,150,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,182,192,201,213,223,232,248,249,250,251,252,253,254,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297,326,335,336,341,342,343,350,383,399,428,429,430,437,438,448,449,450,451,452,462,467,468,469,470,471,477,483,492,503,504,505,506,507,536,537,543,544,545,555,556,561,569,570,581,582,583];
+    const zeroCrossingOffsets = {};
+    const audioBaseName = 'audio.mp3';
+  </script>
+  <script>
+    /**
+     * 审核页前端逻辑
+     * @param {Array} wordsData - 词级字幕数据
+     * @param {Array} autoSelectedData - AI预选的索引列表
+     * @param {Object} zeroCrossingOffsetsData - 过零点偏移量
+     * @param {string} audioFile - 音频文件路径
+     */
+    
+    // 直接内联到 HTML，不使用 ES module
+    
+    function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, audioFile) {
+      const words = wordsData;
+      const autoSelected = new Set(autoSelectedData);
+      let selected = new Set(autoSelected);
+      const sessionId = `review-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const sessionPingIntervalMs = 15000;
+      let sessionPingTimer = null;
+      let sessionClosed = false;
+    
+      // 过零点偏移量（预计算）
+      const zeroCrossingOffsets = zeroCrossingOffsetsData || {};
+    
+      async function sendSessionEvent(eventName, useBeacon = false) {
+        const url = `/api/session/${eventName}`;
+        const payload = JSON.stringify({ sessionId });
+    
+        if (useBeacon && navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+          return true;
+        }
+    
+        try {
+          await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: eventName === 'close'
+          });
+          return true;
+        } catch (err) {
+          console.warn(`session ${eventName} failed`, err);
+          return false;
+        }
+      }
+    
+      function startSessionHeartbeat() {
+        sessionPingTimer = window.setInterval(() => {
+          if (!sessionClosed) {
+            sendSessionEvent('ping');
+          }
+        }, sessionPingIntervalMs);
+      }
+    
+      function closeSession(useBeacon = false) {
+        if (sessionClosed) return;
+        sessionClosed = true;
+        if (sessionPingTimer) {
+          clearInterval(sessionPingTimer);
+          sessionPingTimer = null;
+        }
+        sendSessionEvent('close', useBeacon);
+      }
+    
+      sendSessionEvent('open').then((ok) => {
+        if (ok && !sessionClosed) {
+          startSessionHeartbeat();
+        }
+      });
+    
+      window.addEventListener('pagehide', () => closeSession(true));
+      window.addEventListener('beforeunload', () => closeSession(true));
+    
+      // 应用过零点偏移
+      function applyZeroCrossing(time) {
+        const key = time.toFixed(2);
+        if (zeroCrossingOffsets[key] !== undefined) {
+          return time + zeroCrossingOffsets[key];
+        }
+        return time;
+      }
+    
+      // 初始化 wavesurfer
+      const wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#d6d3d1',
+        progressColor: '#78716C',
+        cursorColor: '#4D7C0F',
+        height: 40,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 2,
+        normalize: true,
+        url: audioFile || 'audio.mp3'
+      });
+    
+      const currentTimeEl = document.getElementById('currentTime');
+      const totalTimeEl = document.getElementById('totalTime');
+      const content = document.getElementById('content');
+      const statsDiv = document.getElementById('stats');
+      const undoButton = document.getElementById('undoButton');
+      const redoButton = document.getElementById('redoButton');
+      const sidebar = document.getElementById('sidebar');
+      const main = document.getElementById('mainWrapper');
+      const controls = document.querySelector('.controls');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+      const mobileQuery = window.matchMedia('(max-width: 860px)');
+      let elements = [];
+      let isSelecting = false;
+      let selectStart = -1;
+      let selectMode = 'add'; // 'add' or 'remove'
+      let pendingShiftDragStart = -1;
+      let pendingShiftDragPoint = null;
+      let pendingShiftDragCurrent = -1;
+      let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
+      let suppressNextClick = false;
+      let sidebarCollapsedDesktop = false;
+      let sidebarOpenMobile = false;
+      const expandedGapGroups = new Set();
+      let shiftRangeAnchor = null;
+      let previewRange = null;
+      let selectionHistory = [Array.from(selected).sort((a, b) => a - b)];
+      let historyIndex = 0;
+    
+      function isSameSnapshot(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) return false;
+        }
+        return true;
+      }
+    
+      function getSelectionSnapshot() {
+        return Array.from(selected).sort((a, b) => a - b);
+      }
+    
+      function updateHistoryButtons() {
+        if (undoButton) {
+          undoButton.disabled = historyIndex <= 0;
+        }
+        if (redoButton) {
+          redoButton.disabled = historyIndex >= selectionHistory.length - 1;
+        }
+      }
+    
+      function pushSelectionHistory(snapshot) {
+        if (isSameSnapshot(selectionHistory[historyIndex], snapshot)) {
+          updateHistoryButtons();
+          return false;
+        }
+    
+        selectionHistory = selectionHistory.slice(0, historyIndex + 1);
+        selectionHistory.push(snapshot);
+        historyIndex = selectionHistory.length - 1;
+        updateHistoryButtons();
+        return true;
+      }
+    
+      function applySelectionSnapshot(snapshot, shouldRender = true) {
+        selected = new Set(snapshot);
+        expandedGapGroups.clear();
+        updateHistoryButtons();
+        if (shouldRender) {
+          render();
+        }
+      }
+    
+      function commitSelectionChange(mutator) {
+        const beforeSnapshot = getSelectionSnapshot();
+        mutator();
+        const afterSnapshot = getSelectionSnapshot();
+    
+        if (isSameSnapshot(beforeSnapshot, afterSnapshot)) {
+          return false;
+        }
+    
+        pushSelectionHistory(afterSnapshot);
+        expandedGapGroups.clear();
+        render();
+        return true;
+      }
+    
+      // 页面加载时尝试加载保存的方案
+      (async function loadSavedSelection() {
+        try {
+          const res = await fetch('/api/load');
+          const data = await res.json();
+          if (data.success && data.selected && data.selected.length > 0) {
+            selected = new Set(data.selected);
+            pushSelectionHistory(getSelectionSnapshot());
+            console.log('📂 已加载保存的方案:', data.selected.length, '个选中项');
+            render();
+          }
+        } catch (err) {
+          console.log('📂 无保存的方案，使用AI预选');
+        }
+      })();
+    
+      // 格式化时间 (用于播放器显示)
+      function formatTime(sec) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    
+      // 格式化时长 (用于剪辑结果显示，带秒数)
+      function formatDuration(sec) {
+        const totalSec = parseFloat(sec);
+        const m = Math.floor(totalSec / 60);
+        const s = (totalSec % 60).toFixed(1);
+        if (m > 0) {
+          return `${m}分${s}秒 (${totalSec}s)`;
+        }
+        return `${s}秒`;
+      }
+    
+      function getSelectionStats() {
+        const totalDuration = wavesurfer.getDuration();
+        let deleteDuration = 0;
+    
+        words.forEach((w, i) => {
+          if (selected.has(i)) {
+            deleteDuration += w.end - w.start;
+          }
+        });
+    
+        const keptDuration = Math.max(0, totalDuration - deleteDuration);
+        const deletedPercent = totalDuration > 0
+          ? (deleteDuration / totalDuration * 100).toFixed(1)
+          : '0.0';
+    
+        return {
+          totalDuration,
+          deleteDuration,
+          keptDuration,
+          deletedPercent
+        };
+      }
+    
+      // 更新播放器标题（成品时长、删除百分比和 AI 预选有效度）
+      function updatePlayerTitle(currentTime, totalDuration) {
+        const playerTitle = document.getElementById('playerTitle');
+        if (!playerTitle || !totalDuration) return;
+    
+        // 计算已删除的时长（基于选中片段）
+        let deletedDuration = 0;
+        const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+        for (const i of sortedSelected) {
+          const w = words[i];
+          if (w && w.end > w.start) {
+            deletedDuration += (w.end - w.start);
+          }
+        }
+    
+        const keptDuration = totalDuration - deletedDuration;
+        const savedPercent = totalDuration > 0 ? Math.round((keptDuration / totalDuration) * 100) : 0;
+        const deletedPercent = 100 - savedPercent;
+    
+        // 格式化成品时长
+        const keptM = Math.floor(keptDuration / 60);
+        const keptS = (keptDuration % 60).toFixed(1);
+        const keptTimeStr = keptM > 0 ? `${keptM}分${keptS}秒` : `${keptS}秒`;
+    
+        const keptAutoSelectedCount = Array.from(selected).filter(i => autoSelected.has(i)).length;
+        const manuallyAddedCount = Array.from(selected).filter(i => !autoSelected.has(i)).length;
+        const effectivenessDenominator = autoSelected.size + manuallyAddedCount;
+        const effectiveness = effectivenessDenominator > 0
+          ? Math.round((keptAutoSelectedCount / effectivenessDenominator) * 100)
+          : 0;
+    
+        playerTitle.textContent = `成品时长 ${keptTimeStr}，已删除${deletedPercent}%，AI预选有效度${effectiveness}%`;
+      }
+    
+      // 更新播放/暂停图标
+      function updatePlayPauseIcon(isPlaying) {
+        const playIcon = document.getElementById('playIcon');
+        if (!playIcon) return;
+    
+        if (isPlaying) {
+          // 暂停图标（两条竖线）
+          playIcon.innerHTML = `
+            <rect x="4" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+            <rect x="9" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+          `;
+        } else {
+          // 播放图标（三角形）
+          playIcon.innerHTML = `<path d="M4 2L14 8L4 14V2Z" fill="currentColor"/>`;
+        }
+      }
+    
+      function syncSidebarUI() {
+        if (!sidebar || !main) return;
+    
+        const isMobile = mobileQuery.matches;
+        sidebar.classList.toggle('collapsed', !isMobile && sidebarCollapsedDesktop);
+        sidebar.classList.toggle('mobile-open', isMobile && sidebarOpenMobile);
+        sidebar.classList.toggle('mobile-hidden', isMobile && !sidebarOpenMobile);
+        main.classList.toggle('sidebar-collapsed', !isMobile && sidebarCollapsedDesktop);
+    
+        if (sidebarBackdrop) {
+          sidebarBackdrop.classList.toggle('visible', isMobile && sidebarOpenMobile);
+        }
+    
+        document.body.classList.toggle('sidebar-open-mobile', isMobile && sidebarOpenMobile);
+    
+        if (sidebarToggle) {
+          const label = isMobile
+            ? (sidebarOpenMobile ? '关闭侧边栏' : '打开侧边栏')
+            : (sidebarCollapsedDesktop ? '展开侧边栏' : '收起侧边栏');
+          sidebarToggle.setAttribute('aria-label', label);
+        }
+    
+        requestAnimationFrame(updateControlsOffset);
+      }
+    
+      function updateControlsOffset() {
+        if (!controls) return;
+        const height = Math.ceil(controls.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--controls-offset', `${height}px`);
+      }
+    
+      function positionExpandedGapButtons() {
+        if (!content) return;
+    
+        const contentRect = content.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const expandedGroups = content.querySelectorAll('.gap-group.expanded');
+    
+        expandedGroups.forEach((group) => {
+          const button = group.querySelector('.gap-group-collapse');
+          if (!button) return;
+    
+          const groupRect = group.getBoundingClientRect();
+          const firstWord = group.querySelector('.word');
+          const anchorRect = firstWord ? firstWord.getBoundingClientRect() : groupRect;
+          const buttonWidth = Math.ceil(button.getBoundingClientRect().width) || 44;
+          const leftCandidate = contentRect.left - buttonWidth - 12;
+          const rightCandidate = contentRect.right + 12;
+          const canPlaceRight = rightCandidate + buttonWidth <= viewportWidth - 8;
+          const x = leftCandidate >= 8 || !canPlaceRight
+            ? Math.max(8, leftCandidate)
+            : rightCandidate;
+    
+          button.style.left = `${Math.round(x)}px`;
+          button.style.top = `${Math.round(anchorRect.top + anchorRect.height / 2)}px`;
+        });
+      }
+    
+      // 侧边栏展开/收起
+      function toggleSidebar(forceOpen) {
+        if (mobileQuery.matches) {
+          sidebarOpenMobile = typeof forceOpen === 'boolean' ? forceOpen : !sidebarOpenMobile;
+        } else {
+          sidebarCollapsedDesktop = typeof forceOpen === 'boolean' ? !forceOpen : !sidebarCollapsedDesktop;
+        }
+        syncSidebarUI();
+      }
+    
+      function getGapGroupKey(start, end) {
+        return `${start}-${end}`;
+      }
+    
+      function findSelectedGapGroup(index) {
+        const word = words[index];
+        if (!word || !word.isGap || !selected.has(index)) return null;
+    
+        let start = index;
+        let end = index;
+    
+        while (start > 0 && words[start - 1].isGap && selected.has(start - 1)) {
+          start--;
+        }
+        while (end < words.length - 1 && words[end + 1].isGap && selected.has(end + 1)) {
+          end++;
+        }
+    
+        return { start, end, key: getGapGroupKey(start, end), length: end - start + 1 };
+      }
+    
+      function getCollapsibleGapGroupAt(index) {
+        const group = findSelectedGapGroup(index);
+        if (!group || group.start !== index || group.length <= 3) return null;
+        return group;
+      }
+    
+      function createWordElement(i) {
+        const word = words[i];
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.dataset.index = i;
+        const isWhitespaceToken = !word.isGap && /^\s+$/.test(word.text || '');
+    
+        if (word.isGap) {
+          span.classList.add('gap');
+          span.textContent = `[${(word.end - word.start).toFixed(1)}s]`;
+        } else {
+          span.textContent = isWhitespaceToken ? '' : word.text;
+        }
+    
+        if (isWhitespaceToken) {
+          span.classList.add('whitespace-token');
+        }
+    
+        if (autoSelected.has(i)) {
+          span.classList.add('auto-selected');
+        }
+        if (selected.has(i)) {
+          span.classList.add('selected');
+        }
+    
+        // 单击跳转播放；Shift+单击用于区间选择
+        span.onclick = (e) => {
+          if (suppressNextClick) {
+            suppressNextClick = false;
+            return;
+          }
+    
+          if (isSelecting) return;
+          if (e.shiftKey) {
+            if (shiftRangeAnchor === null) {
+              shiftRangeAnchor = i;
+              updatePreviewRange(i, i);
+            } else {
+              applyRangeSelection(shiftRangeAnchor, i);
+              resetShiftPreview();
+            }
+            return;
+          }
+    
+          resetShiftPreview();
+          if (pendingClickTimer) return;
+          pendingClickTimer = setTimeout(() => {
+            pendingClickTimer = null;
+            wavesurfer.setTime(word.start);
+          }, 250);
+        };
+    
+        // 双击选中/取消（立即执行，并取消待处理的单击）
+        span.ondblclick = (e) => {
+          e.preventDefault();
+          if (pendingClickTimer) {
+            clearTimeout(pendingClickTimer);
+            pendingClickTimer = null;
+          }
+    
+          resetShiftPreview();
+          toggle(i);
+        };
+    
+        span.onmouseenter = () => {
+          if (isSelecting || shiftRangeAnchor === null || i === shiftRangeAnchor) {
+            return;
+          }
+          updatePreviewRange(shiftRangeAnchor, i);
+        };
+    
+        // Shift+拖动选择/取消
+        span.onmousedown = (e) => {
+          if (e.shiftKey) {
+            pendingShiftDragStart = i;
+            pendingShiftDragPoint = { x: e.clientX, y: e.clientY };
+            pendingShiftDragCurrent = i;
+          }
+        };
+    
+        elements[i] = span;
+        return span;
+      }
+    
+      function createCollapsedGapPlaceholder(group) {
+        const hiddenDuration = words
+          .slice(group.start + 1, group.end)
+          .reduce((sum, word) => sum + (word.end - word.start), 0);
+        const hiddenIndexes = Array.from(
+          { length: Math.max(0, group.end - group.start - 1) },
+          (_, offset) => group.start + 1 + offset
+        );
+        const isAutoSelectedGroup = hiddenIndexes.length > 0 && hiddenIndexes.every(index => autoSelected.has(index));
+    
+        const placeholder = document.createElement('span');
+        placeholder.className = 'word gap gap-collapsed-toggle selected selected-start selected-end';
+        placeholder.dataset.groupStart = group.start + 1;
+        placeholder.dataset.groupEnd = group.end - 1;
+        if (isAutoSelectedGroup) {
+          placeholder.classList.add('auto-selected');
+        }
+        placeholder.textContent = `...[${hiddenDuration.toFixed(1)}s]`;
+        placeholder.title = '点击展开中间静音片段';
+        placeholder.onmouseenter = () => {
+          if (isSelecting || shiftRangeAnchor === null) {
+            return;
+          }
+    
+          const previewIndex = shiftRangeAnchor <= group.start
+            ? group.end - 1
+            : group.start + 1;
+          updatePreviewRange(shiftRangeAnchor, previewIndex);
+        };
+        placeholder.onclick = (e) => {
+          e.stopPropagation();
+          expandedGapGroups.add(group.key);
+          render();
+        };
+    
+        hiddenIndexes.forEach((index) => {
+          elements[index] = placeholder;
+        });
+    
+        return placeholder;
+      }
+    
+      function createGapGroupContainer(group) {
+        const container = document.createElement('span');
+        container.className = 'gap-group';
+        container.dataset.groupKey = group.key;
+    
+        const collapseButton = document.createElement('button');
+        collapseButton.type = 'button';
+        collapseButton.className = 'gap-group-collapse btn-tooltip';
+        collapseButton.dataset.tooltip = '折叠连续静音片段';
+        collapseButton.innerHTML = `
+          <span class="gap-group-collapse-label">折叠</span>
+          <svg class="gap-group-collapse-icon" width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 2.5V7.5M10 7.5L12.5 5M10 7.5L7.5 5M10 17.5V12.5M10 12.5L12.5 15M10 12.5L7.5 15M3.33333 10H4.16667M7.5 10H8.33333M11.6667 10H12.5M15.8333 10H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+        collapseButton.onmouseenter = () => {
+          container.classList.add('button-hover');
+        };
+        collapseButton.onmouseleave = () => {
+          container.classList.remove('button-hover');
+        };
+        collapseButton.onfocus = () => {
+          container.classList.add('button-hover');
+        };
+        collapseButton.onblur = () => {
+          container.classList.remove('button-hover');
+        };
+        collapseButton.onclick = (e) => {
+          e.stopPropagation();
+          expandedGapGroups.delete(group.key);
+          render();
+        };
+    
+        container.appendChild(collapseButton);
+        return container;
+      }
+    
+      // 渲染内容
+      function render() {
+        content.innerHTML = '';
+        elements = new Array(words.length).fill(null);
+    
+        for (let i = 0; i < words.length; i++) {
+          const group = getCollapsibleGapGroupAt(i);
+          if (group) {
+            const isExpanded = expandedGapGroups.has(group.key);
+            const container = createGapGroupContainer(group);
+    
+            if (isExpanded) {
+              container.classList.add('expanded');
+              for (let j = group.start; j <= group.end; j++) {
+                container.appendChild(createWordElement(j));
+              }
+            } else {
+              container.classList.add('collapsed');
+              container.appendChild(createWordElement(group.start));
+              container.appendChild(createCollapsedGapPlaceholder(group));
+              container.appendChild(createWordElement(group.end));
+            }
+    
+            content.appendChild(container);
+            i = group.end;
+            continue;
+          }
+    
+          content.appendChild(createWordElement(i));
+        }
+    
+        // 计算连续选中状态，添加 selected-start/selected-end 类
+        updateSelectedBorderRadius();
+        updateStats();
+        requestAnimationFrame(positionExpandedGapButtons);
+      }
+    
+      // 更新选中片段的圆角（让连续选中看起来连在一起）
+      function updateSelectedBorderRadius() {
+        elements.forEach((el, i) => {
+          if (!el) return;
+          el.classList.remove('selected-start', 'selected-end');
+          if (!selected.has(i)) return;
+    
+          const prevSelected = i > 0 && selected.has(i - 1);
+          const nextSelected = i < words.length - 1 && selected.has(i + 1);
+    
+          if (!prevSelected && !nextSelected) {
+            // 单个选中：左右都是圆角
+            el.classList.add('selected-start', 'selected-end');
+          } else if (!prevSelected) {
+            // 连续片段开始：左圆角右尖角
+            el.classList.add('selected-start');
+          } else if (!nextSelected) {
+            // 连续片段结束：左尖角右圆角
+            el.classList.add('selected-end');
+          }
+          // 中间的片段不加任何类（都是尖角）
+        });
+      }
+    
+      function getNormalizedRange(startIndex, endIndex) {
+        return {
+          min: Math.min(startIndex, endIndex),
+          max: Math.max(startIndex, endIndex)
+        };
+      }
+    
+      function resetShiftPreview() {
+        shiftRangeAnchor = null;
+        clearPreviewRange();
+      }
+    
+      function applySelectionModeToRange(min, max, mode) {
+        for (let j = min; j <= max; j++) {
+          if (mode === 'add') {
+            selected.add(j);
+          } else {
+            selected.delete(j);
+          }
+        }
+      }
+    
+      function getRangeSelectionMode(min, max) {
+        for (let j = min; j <= max; j++) {
+          if (!selected.has(j)) {
+            return 'add';
+          }
+        }
+        return 'remove';
+      }
+    
+      function clearPreviewRange() {
+        previewRange = null;
+        elements.forEach((el) => {
+          if (!el) return;
+          el.classList.remove('preview-range', 'preview-start', 'preview-end');
+        });
+      }
+    
+      function updatePreviewRange(startIndex, endIndex) {
+        clearPreviewRange();
+    
+        const { min, max } = getNormalizedRange(startIndex, endIndex);
+        previewRange = { min, max };
+    
+        for (let j = min; j <= max; j++) {
+          const el = elements[j];
+          if (!el) continue;
+    
+          el.classList.add('preview-range');
+          if (j === min) el.classList.add('preview-start');
+          if (j === max) el.classList.add('preview-end');
+        }
+      }
+    
+      function applyRangeSelection(startIndex, endIndex) {
+        clearPreviewRange();
+    
+        const { min, max } = getNormalizedRange(startIndex, endIndex);
+        const mode = getRangeSelectionMode(min, max);
+        commitSelectionChange(() => applySelectionModeToRange(min, max, mode));
+      }
+    
+      // 切换选中状态
+      function toggle(i) {
+        const group = findSelectedGapGroup(i);
+        commitSelectionChange(() => {
+          if (selected.has(i)) {
+            selected.delete(i);
+          } else {
+            selected.add(i);
+          }
+    
+          if (group) {
+            expandedGapGroups.delete(group.key);
+          }
+        });
+      }
+    
+      // 更新统计
+      function updateStats() {
+        const { totalDuration, deleteDuration, keptDuration, deletedPercent } = getSelectionStats();
+        const deleteCount = selected.size;
+    
+        statsDiv.innerHTML = `
+          <div>总时长: ${formatDuration(totalDuration)}</div>
+          <div>保留: ${formatDuration(keptDuration)}</div>
+          <div>删除: ${formatDuration(deleteDuration)} (${deletedPercent}%)</div>
+          <div>选中: ${deleteCount} 个</div>
+        `;
+    
+        updatePlayerTitle(wavesurfer.getCurrentTime(), totalDuration);
+      }
+    
+      // 复制删除列表
+      function copyDeleteList() {
+        const segments = [];
+        const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+        sortedSelected.forEach(i => {
+          const word = words[i];
+          // 应用过零点偏移
+          const start = applyZeroCrossing(word.start);
+          const end = applyZeroCrossing(word.end);
+          segments.push({ start: start.toFixed(3), end: end.toFixed(3) });
+        });
+        navigator.clipboard.writeText(JSON.stringify(segments, null, 2));
+        alert('📋 删除列表已复制到剪贴板');
+      }
+    
+      // 保存方案
+      async function saveSelection() {
+        const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+        try {
+          const res = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selected: sortedSelected })
+          });
+          const data = await res.json();
+          if (data.success) {
+            alert('💾 方案已保存: ' + data.file);
+          } else {
+            alert('❌ 保存失败: ' + data.error);
+          }
+        } catch (err) {
+          alert('❌ 保存失败: ' + err.message);
+        }
+      }
+    
+      // 清空选择
+      function clearAll() {
+        commitSelectionChange(() => {
+          selected.clear();
+        });
+      }
+    
+      function undoSelection() {
+        if (historyIndex <= 0) return;
+        historyIndex--;
+        applySelectionSnapshot(selectionHistory[historyIndex]);
+      }
+    
+      function redoSelection() {
+        if (historyIndex >= selectionHistory.length - 1) return;
+        historyIndex++;
+        applySelectionSnapshot(selectionHistory[historyIndex]);
+      }
+    
+      // wavesurfer 就绪
+      wavesurfer.on('ready', () => {
+        render();
+        const duration = wavesurfer.getDuration();
+        currentTimeEl.textContent = formatTime(0);
+        totalTimeEl.textContent = formatTime(duration);
+        updatePlayerTitle(0, duration);
+        updatePlayPauseIcon(false);
+      });
+    
+      // wavesurfer 播放/暂停状态变化
+      wavesurfer.on('play', () => updatePlayPauseIcon(true));
+      wavesurfer.on('pause', () => updatePlayPauseIcon(false));
+    
+      // wavesurfer 点击波形图跳转
+      wavesurfer.on('interaction', (t) => {
+        // 高亮当前词
+        elements.forEach((el, i) => {
+          if (!el) return;
+          const word = words[i];
+          if (t >= word.start && t < word.end) {
+            if (!el.classList.contains('current')) {
+              el.classList.add('current');
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } else {
+            el.classList.remove('current');
+          }
+        });
+        currentTimeEl.textContent = formatTime(t);
+        updatePlayerTitle(t, wavesurfer.getDuration());
+      });
+    
+      // wavesurfer 错误处理
+      wavesurfer.on('error', (err) => {
+        console.error('wavesurfer error:', err);
+        // 音频加载失败时也渲染文字内容
+        render();
+        currentTimeEl.textContent = '--:--';
+        totalTimeEl.textContent = '--:--';
+      });
+    
+      // 备用：DOM 就绪后也尝试渲染（防止 wavesurfer 事件不触发）
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(render, 100);
+      } else {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(render, 100));
+      }
+    
+      syncSidebarUI();
+      updateControlsOffset();
+    
+      if (window.ResizeObserver && controls) {
+        const controlsResizeObserver = new ResizeObserver(() => updateControlsOffset());
+        controlsResizeObserver.observe(controls);
+      }
+    
+      window.addEventListener('resize', updateControlsOffset);
+      window.addEventListener('resize', positionExpandedGapButtons);
+      window.addEventListener('scroll', positionExpandedGapButtons, { passive: true });
+      mobileQuery.addEventListener('change', () => {
+        if (!mobileQuery.matches) {
+          sidebarOpenMobile = false;
+        }
+        syncSidebarUI();
+        requestAnimationFrame(positionExpandedGapButtons);
+      });
+    
+      // 播放时间更新 - 跳过选中片段 + 高亮当前词
+      wavesurfer.on('timeupdate', (t) => {
+        // 播放时跳过选中片段
+        if (wavesurfer.isPlaying()) {
+          const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+          for (const i of sortedSelected) {
+            const w = words[i];
+            if (t >= w.start && t < w.end) {
+              // 找到连续选中片段的末尾
+              let endTime = w.end;
+              let j = sortedSelected.indexOf(i) + 1;
+              while (j < sortedSelected.length) {
+                const nextIdx = sortedSelected[j];
+                const nextW = words[nextIdx];
+                if (nextW.start - endTime < 0.1) {
+                  endTime = nextW.end;
+                  j++;
+                } else {
+                  break;
+                }
+              }
+              wavesurfer.setTime(endTime);
+              return;
+            }
+          }
+        }
+    
+        currentTimeEl.textContent = formatTime(t);
+        totalTimeEl.textContent = formatTime(wavesurfer.getDuration());
+        updatePlayerTitle(t, wavesurfer.getDuration());
+    
+        // 高亮当前词
+        elements.forEach((el, i) => {
+          if (!el) return;
+          const word = words[i];
+          if (t >= word.start && t < word.end) {
+            if (!el.classList.contains('current')) {
+              el.classList.add('current');
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } else {
+            el.classList.remove('current');
+          }
+        });
+      });
+    
+      // Shift+拖动多选
+      content.addEventListener('mousemove', e => {
+        const target = e.target.closest('[data-index]');
+        if (!target) {
+          return;
+        }
+    
+        if (!isSelecting) {
+          if (pendingShiftDragStart === -1) {
+            return;
+          }
+    
+          const movedEnough = !pendingShiftDragPoint
+            || Math.abs(e.clientX - pendingShiftDragPoint.x) > 4
+            || Math.abs(e.clientY - pendingShiftDragPoint.y) > 4;
+          if (!movedEnough) {
+            return;
+          }
+    
+          const i = parseInt(target.dataset.index);
+          if (i === pendingShiftDragStart) {
+            return;
+          }
+    
+          isSelecting = true;
+          selectStart = pendingShiftDragStart;
+          selectMode = selected.has(selectStart) ? 'remove' : 'add';
+          shiftRangeAnchor = null;
+        }
+    
+        pendingShiftDragCurrent = parseInt(target.dataset.index);
+    
+        if (isSelecting) {
+          updatePreviewRange(selectStart, pendingShiftDragCurrent);
+          return;
+        }
+      });
+    
+      function finishShiftDrag() {
+        pendingShiftDragStart = -1;
+        pendingShiftDragPoint = null;
+        pendingShiftDragCurrent = -1;
+    
+        if (!isSelecting) {
+          return;
+        }
+    
+        const { min, max } = getNormalizedRange(selectStart, previewRange?.max ?? selectStart);
+        const didChange = commitSelectionChange(() => applySelectionModeToRange(min, max, selectMode));
+    
+        isSelecting = false;
+        resetShiftPreview();
+        suppressNextClick = true;
+        if (!didChange) {
+          render();
+        }
+      }
+    
+      function cancelShiftDrag() {
+        pendingShiftDragStart = -1;
+        pendingShiftDragPoint = null;
+        pendingShiftDragCurrent = -1;
+    
+        if (!isSelecting) {
+          clearPreviewRange();
+          return;
+        }
+    
+        isSelecting = false;
+        resetShiftPreview();
+        suppressNextClick = true;
+      }
+    
+      // 鼠标释放结束选择
+      document.addEventListener('mouseup', () => {
+        finishShiftDrag();
+      });
+    
+      content.addEventListener('mouseup', () => {
+        pendingShiftDragStart = -1;
+        pendingShiftDragPoint = null;
+        pendingShiftDragCurrent = -1;
+      });
+    
+      content.addEventListener('mouseleave', () => {
+        if (isSelecting || shiftRangeAnchor === null) {
+          return;
+        }
+        updatePreviewRange(shiftRangeAnchor, shiftRangeAnchor);
+      });
+    
+      document.addEventListener('keyup', e => {
+        if (e.key === 'Shift') {
+          if (isSelecting || pendingShiftDragStart !== -1) {
+            cancelShiftDrag();
+            return;
+          }
+    
+          resetShiftPreview();
+        }
+      });
+    
+      // 生成 EDL
+      async function executeCut() {
+        const { keptDuration, deletedPercent } = getSelectionStats();
+        const shouldGenerate = confirm(`确认生成EDL文件？\n\n预计成品时长${formatDuration(keptDuration)}，已删除${deletedPercent}%`);
+        if (!shouldGenerate) return;
+    
+        const segments = [];
+        const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+        sortedSelected.forEach(i => {
+          const word = words[i];
+          // 应用过零点偏移
+          segments.push({ start: applyZeroCrossing(word.start), end: applyZeroCrossing(word.end) });
+        });
+    
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.classList.add('show');
+    
+        try {
+          const res = await fetch('/api/cut-noclose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(segments)
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          overlay.classList.remove('show');
+    
+          if (data.success) {
+            const shouldCloseServer = confirm(`✅ EDL已生成，要关闭服务器吗？\n\nEDL文件在“3_审核”目录下，文件名为 ${data.output}`);
+            if (shouldCloseServer) {
+              try {
+                await fetch('/api/shutdown', { method: 'POST', keepalive: true });
+              } catch (shutdownErr) {
+                console.warn('shutdown failed', shutdownErr);
+              }
+              window.close();
+            }
+          } else {
+            const errorDetail = data.error ? `\n\n错误信息：${data.error}` : '';
+            alert(`❌ EDL生成失败\n\n没有成功生成 EDL 文件，请稍后重试。${errorDetail}`);
+          }
+        } catch (err) {
+          overlay.classList.remove('show');
+          const message = String(err?.message || err);
+          if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('fetch') || message.startsWith('HTTP ')) {
+            alert('❌ 无法连接审核服务器\n\n浏览器没有拿到 /api/cut-noclose 的返回结果。\n\n请确认：\n1. http://localhost:8899 还能正常打开\n2. 审核服务器仍在运行\n3. 再重试一次生成 EDL\n\n如果目录里已经出现 .edl 文件，说明这次其实已经生成成功。');
+          } else {
+            alert(`❌ EDL生成失败\n\n${message}`);
+          }
+        }
+      }
+    
+      // 智能 EDL（带过零点检测）
+      async function executeSmartCut() {
+        const { keptDuration, deletedPercent } = getSelectionStats();
+        const shouldGenerate = confirm(`确认生成智能EDL文件（自动过零点）？\n\n预计成品时长${formatDuration(keptDuration)}，已删除${deletedPercent}%。切分点将被优化至最近的过零点，减少爆音。`);
+        if (!shouldGenerate) return;
+    
+        const segments = [];
+        const sortedSelected = Array.from(selected).sort((a, b) => a - b);
+        sortedSelected.forEach(i => {
+          const word = words[i];
+          segments.push({ start: word.start, end: word.end });
+        });
+    
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.classList.add('show');
+        overlay.querySelector('.loading-text').textContent = '⚡ 正在检测过零点...';
+    
+        try {
+          const res = await fetch('/api/cut-smart-noclose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deleteSegments: segments, optimizeKeep: true })
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          overlay.classList.remove('show');
+    
+          if (data.success) {
+            const shouldCloseServer = confirm(`✅ 智能EDL已生成，要关闭服务器吗？\n\nEDL文件在“3_审核”目录下，文件名为 ${data.output}`);
+            if (shouldCloseServer) {
+              try {
+                await fetch('/api/shutdown', { method: 'POST', keepalive: true });
+              } catch (shutdownErr) {
+                console.warn('shutdown failed', shutdownErr);
+              }
+              window.close();
+            }
+          } else {
+            const errorDetail = data.error ? `\n\n错误信息：${data.error}` : '';
+            alert(`❌ EDL生成失败\n\n没有成功生成 EDL 文件，请稍后重试。${errorDetail}`);
+          }
+        } catch (err) {
+          overlay.classList.remove('show');
+          const message = String(err?.message || err);
+          if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('fetch') || message.startsWith('HTTP ')) {
+            alert('❌ 无法连接审核服务器\n\n浏览器没有拿到 /api/cut-smart-noclose 的返回结果。\n\n请确认：\n1. http://localhost:8899 还能正常打开\n2. 审核服务器仍在运行\n3. 再重试一次生成智能 EDL\n\n如果目录里已经出现 _cut_smart.edl 文件，说明这次其实已经生成成功。');
+          } else {
+            alert(`❌ 智能EDL生成失败\n\n${message}`);
+          }
+        }
+      }
+    
+      // 键盘快捷键
+      document.addEventListener('keydown', e => {
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const modifierPressed = isMac ? e.metaKey : e.ctrlKey;
+    
+        if (modifierPressed && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redoSelection();
+          } else {
+            undoSelection();
+          }
+          return;
+        }
+    
+        if (e.code === 'Escape' && mobileQuery.matches && sidebarOpenMobile) {
+          e.preventDefault();
+          toggleSidebar(false);
+          return;
+        }
+    
+        if (e.code === 'Space') {
+          e.preventDefault();
+          wavesurfer.playPause();
+        } else if (e.code === 'ArrowLeft') {
+          wavesurfer.setTime(Math.max(0, wavesurfer.getCurrentTime() - (e.shiftKey ? 5 : 1)));
+        } else if (e.code === 'ArrowRight') {
+          wavesurfer.setTime(Math.min(wavesurfer.getDuration(), wavesurfer.getCurrentTime() + (e.shiftKey ? 5 : 1)));
+        }
+      });
+    
+      // 暴露给全局，以便 HTML onclick 调用
+      window.toggleSidebar = toggleSidebar;
+      window.saveSelection = saveSelection;
+      window.undoSelection = undoSelection;
+      window.redoSelection = redoSelection;
+      window.copyDeleteList = copyDeleteList;
+      window.clearAll = clearAll;
+      window.executeCut = executeCut;
+      window.executeSmartCut = executeSmartCut;
+      window.wavesurfer = wavesurfer;
+    
+      updateHistoryButtons();
+    
+      window.addEventListener('unload', () => closeSession(true));
+    }
+    
+
+    // 初始化应用
+    initReviewPage(words, autoSelected, zeroCrossingOffsets, audioBaseName);
+  </script>
+</body>
+</html>
