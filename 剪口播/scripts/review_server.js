@@ -18,7 +18,9 @@ const { execSync } = require('child_process');
 const PORT = process.argv[2] || 8899;
 let VIDEO_FILE = process.argv[3] || findVideoFile();
 const SESSION_TTL_MS = 45000;
+const AUTO_SHUTDOWN_DELAY_MS = 1500;
 const activeSessions = new Map();
+let shutdownTimer = null;
 
 function findVideoFile() {
   const files = fs.readdirSync('.').filter(f => f.endsWith('.mp4'));
@@ -170,14 +172,33 @@ function shutdownServer(reason) {
   server.close(() => process.exit(0));
 }
 
+function clearScheduledShutdown() {
+  if (shutdownTimer) {
+    clearTimeout(shutdownTimer);
+    shutdownTimer = null;
+  }
+}
+
 function scheduleExitIfNoSessions(reason) {
   if (getActiveSessionCount() === 0) {
-    console.log(`ℹ️ 保持服务器运行${reason ? `（${reason}）` : ''}`);
+    if (shutdownTimer) {
+      return;
+    }
+
+    console.log(`⏳ 已安排自动关服${reason ? `（${reason}）` : ''}`);
+    shutdownTimer = setTimeout(() => {
+      shutdownTimer = null;
+      if (getActiveSessionCount() === 0) {
+        shutdownServer(reason || '最后一个审核页面已关闭');
+      }
+    }, AUTO_SHUTDOWN_DELAY_MS);
+    shutdownTimer.unref?.();
   }
 }
 
 function touchSession(sessionId) {
   if (!sessionId) return 0;
+  clearScheduledShutdown();
   activeSessions.set(sessionId, Date.now());
   return getActiveSessionCount();
 }
@@ -229,6 +250,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/api/shutdown') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
+    clearScheduledShutdown();
     setTimeout(() => shutdownServer('用户确认关闭服务器'), 100);
     return;
   }
