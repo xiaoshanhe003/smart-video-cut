@@ -110,11 +110,14 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
   let selectMode = 'add'; // 'add' or 'remove'
   let pendingShiftDragStart = -1;
   let pendingShiftDragPoint = null;
+  let pendingShiftDragCurrent = -1;
   let pendingClickTimer = null; // 延迟执行的单击回调，用于区分单击/双击
+  let suppressNextClick = false;
   let sidebarCollapsedDesktop = false;
   let sidebarOpenMobile = false;
   const expandedGapGroups = new Set();
   let shiftRangeAnchor = null;
+  let previewRange = null;
 
   // 页面加载时尝试加载保存的方案
   (async function loadSavedSelection() {
@@ -344,18 +347,24 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
     // 单击跳转播放；Shift+单击用于区间选择
     span.onclick = (e) => {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+      }
+
       if (isSelecting) return;
       if (e.shiftKey) {
         if (shiftRangeAnchor === null) {
           shiftRangeAnchor = i;
+          updatePreviewRange(i, i);
         } else {
           applyRangeSelection(shiftRangeAnchor, i);
-          shiftRangeAnchor = null;
+          resetShiftPreview();
         }
         return;
       }
 
-      shiftRangeAnchor = null;
+      resetShiftPreview();
       if (pendingClickTimer) return;
       pendingClickTimer = setTimeout(() => {
         pendingClickTimer = null;
@@ -371,8 +380,15 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
         pendingClickTimer = null;
       }
 
-      shiftRangeAnchor = null;
+      resetShiftPreview();
       toggle(i);
+    };
+
+    span.onmouseenter = () => {
+      if (isSelecting || shiftRangeAnchor === null || i === shiftRangeAnchor) {
+        return;
+      }
+      updatePreviewRange(shiftRangeAnchor, i);
     };
 
     // Shift+拖动选择/取消
@@ -380,6 +396,7 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       if (e.shiftKey) {
         pendingShiftDragStart = i;
         pendingShiftDragPoint = { x: e.clientX, y: e.clientY };
+        pendingShiftDragCurrent = i;
       }
     };
 
@@ -399,16 +416,33 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
 
     const placeholder = document.createElement('span');
     placeholder.className = 'word gap gap-collapsed-toggle selected selected-start selected-end';
+    placeholder.dataset.groupStart = group.start + 1;
+    placeholder.dataset.groupEnd = group.end - 1;
     if (isAutoSelectedGroup) {
       placeholder.classList.add('auto-selected');
     }
     placeholder.textContent = `...[${hiddenDuration.toFixed(1)}s]`;
     placeholder.title = '点击展开中间静音片段';
+    placeholder.onmouseenter = () => {
+      if (isSelecting || shiftRangeAnchor === null) {
+        return;
+      }
+
+      const previewIndex = shiftRangeAnchor <= group.start
+        ? group.end - 1
+        : group.start + 1;
+      updatePreviewRange(shiftRangeAnchor, previewIndex);
+    };
     placeholder.onclick = (e) => {
       e.stopPropagation();
       expandedGapGroups.add(group.key);
       render();
     };
+
+    hiddenIndexes.forEach((index) => {
+      elements[index] = placeholder;
+    });
+
     return placeholder;
   }
 
@@ -510,25 +544,67 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
     });
   }
 
-  function applyRangeSelection(startIndex, endIndex) {
-    const min = Math.min(startIndex, endIndex);
-    const max = Math.max(startIndex, endIndex);
-    let shouldRemoveRange = true;
+  function getNormalizedRange(startIndex, endIndex) {
+    return {
+      min: Math.min(startIndex, endIndex),
+      max: Math.max(startIndex, endIndex)
+    };
+  }
 
+  function resetShiftPreview() {
+    shiftRangeAnchor = null;
+    clearPreviewRange();
+  }
+
+  function applySelectionModeToRange(min, max, mode) {
+    for (let j = min; j <= max; j++) {
+      if (mode === 'add') {
+        selected.add(j);
+      } else {
+        selected.delete(j);
+      }
+    }
+  }
+
+  function getRangeSelectionMode(min, max) {
     for (let j = min; j <= max; j++) {
       if (!selected.has(j)) {
-        shouldRemoveRange = false;
-        break;
+        return 'add';
       }
     }
+    return 'remove';
+  }
+
+  function clearPreviewRange() {
+    previewRange = null;
+    elements.forEach((el) => {
+      if (!el) return;
+      el.classList.remove('preview-range', 'preview-start', 'preview-end');
+    });
+  }
+
+  function updatePreviewRange(startIndex, endIndex) {
+    clearPreviewRange();
+
+    const { min, max } = getNormalizedRange(startIndex, endIndex);
+    previewRange = { min, max };
 
     for (let j = min; j <= max; j++) {
-      if (shouldRemoveRange) {
-        selected.delete(j);
-      } else {
-        selected.add(j);
-      }
+      const el = elements[j];
+      if (!el) continue;
+
+      el.classList.add('preview-range');
+      if (j === min) el.classList.add('preview-start');
+      if (j === max) el.classList.add('preview-end');
     }
+  }
+
+  function applyRangeSelection(startIndex, endIndex) {
+    clearPreviewRange();
+
+    const { min, max } = getNormalizedRange(startIndex, endIndex);
+    const mode = getRangeSelectionMode(min, max);
+    applySelectionModeToRange(min, max, mode);
 
     expandedGapGroups.clear();
     render();
@@ -746,41 +822,77 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       isSelecting = true;
       selectStart = pendingShiftDragStart;
       selectMode = selected.has(selectStart) ? 'remove' : 'add';
+      shiftRangeAnchor = null;
     }
 
-    const i = parseInt(target.dataset.index);
-    const min = Math.min(selectStart, i);
-    const max = Math.max(selectStart, i);
+    pendingShiftDragCurrent = parseInt(target.dataset.index);
 
-    for (let j = min; j <= max; j++) {
-      if (selectMode === 'add') {
-        selected.add(j);
-        if (elements[j]) elements[j].classList.add('selected');
-      } else {
-        selected.delete(j);
-        if (elements[j]) elements[j].classList.remove('selected');
-      }
+    if (isSelecting) {
+      updatePreviewRange(selectStart, pendingShiftDragCurrent);
+      return;
     }
-    updateSelectedBorderRadius();
-    updateStats();
   });
 
-  // 鼠标释放结束选择
-  content.addEventListener('mouseup', () => {
+  function finishShiftDrag() {
     pendingShiftDragStart = -1;
     pendingShiftDragPoint = null;
+    pendingShiftDragCurrent = -1;
+
     if (!isSelecting) {
       return;
     }
 
+    const { min, max } = getNormalizedRange(selectStart, previewRange?.max ?? selectStart);
+    applySelectionModeToRange(min, max, selectMode);
+
     isSelecting = false;
-    shiftRangeAnchor = null;
+    resetShiftPreview();
+    expandedGapGroups.clear();
+    suppressNextClick = true;
     render();
+  }
+
+  function cancelShiftDrag() {
+    pendingShiftDragStart = -1;
+    pendingShiftDragPoint = null;
+    pendingShiftDragCurrent = -1;
+
+    if (!isSelecting) {
+      clearPreviewRange();
+      return;
+    }
+
+    isSelecting = false;
+    resetShiftPreview();
+    suppressNextClick = true;
+  }
+
+  // 鼠标释放结束选择
+  document.addEventListener('mouseup', () => {
+    finishShiftDrag();
+  });
+
+  content.addEventListener('mouseup', () => {
+    pendingShiftDragStart = -1;
+    pendingShiftDragPoint = null;
+    pendingShiftDragCurrent = -1;
+  });
+
+  content.addEventListener('mouseleave', () => {
+    if (isSelecting || shiftRangeAnchor === null) {
+      return;
+    }
+    updatePreviewRange(shiftRangeAnchor, shiftRangeAnchor);
   });
 
   document.addEventListener('keyup', e => {
-    if (e.key === 'Shift' && !isSelecting) {
-      shiftRangeAnchor = null;
+    if (e.key === 'Shift') {
+      if (isSelecting || pendingShiftDragStart !== -1) {
+        cancelShiftDrag();
+        return;
+      }
+
+      resetShiftPreview();
     }
   });
 
@@ -807,6 +919,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(segments)
       });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       overlay.classList.remove('show');
 
@@ -826,10 +941,11 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       }
     } catch (err) {
       overlay.classList.remove('show');
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch')) {
-        alert('⚠️ 无法确认生成结果\n\n请到“3_审核”目录查看是否已经生成对应的 .edl 文件。');
+      const message = String(err?.message || err);
+      if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('fetch') || message.startsWith('HTTP ')) {
+        alert('❌ 无法连接审核服务器\n\n浏览器没有拿到 /api/cut-noclose 的返回结果。\n\n请确认：\n1. http://localhost:8899 还能正常打开\n2. 审核服务器仍在运行\n3. 再重试一次生成 EDL\n\n如果目录里已经出现 .edl 文件，说明这次其实已经生成成功。');
       } else {
-        alert('❌ 无法连接审核服务器\n\n请确认审核服务器正在运行，然后刷新页面后重试。');
+        alert(`❌ EDL生成失败\n\n${message}`);
       }
     }
   }
@@ -857,6 +973,9 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deleteSegments: segments, optimizeKeep: true })
       });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       overlay.classList.remove('show');
 
@@ -876,10 +995,11 @@ function initReviewPage(wordsData, autoSelectedData, zeroCrossingOffsetsData, au
       }
     } catch (err) {
       overlay.classList.remove('show');
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch')) {
-        alert('⚠️ 无法确认生成结果\n\n请到“3_审核”目录查看是否已经生成对应的 .edl 文件。');
+      const message = String(err?.message || err);
+      if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('fetch') || message.startsWith('HTTP ')) {
+        alert('❌ 无法连接审核服务器\n\n浏览器没有拿到 /api/cut-smart-noclose 的返回结果。\n\n请确认：\n1. http://localhost:8899 还能正常打开\n2. 审核服务器仍在运行\n3. 再重试一次生成智能 EDL\n\n如果目录里已经出现 _cut_smart.edl 文件，说明这次其实已经生成成功。');
       } else {
-        alert('❌ 无法连接审核服务器\n\n请确认审核服务器正在运行，然后刷新页面后重试。');
+        alert(`❌ 智能EDL生成失败\n\n${message}`);
       }
     }
   }

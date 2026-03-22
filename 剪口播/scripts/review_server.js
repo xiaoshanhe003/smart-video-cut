@@ -516,7 +516,10 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {
     'Content-Type': contentType,
     'Content-Length': stat.size,
-    'Accept-Ranges': 'bytes'
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0'
   });
   fs.createReadStream(filePath).pipe(res);
 });
