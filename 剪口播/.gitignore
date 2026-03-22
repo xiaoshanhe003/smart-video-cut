@@ -1,0 +1,12 @@
+# Local skill runtime files
+.agents/
+.claude/
+AGENTS.md
+skills-lock.json
+
+# Local media and generated sample inputs
+audio.mp3
+review.html
+test_data/*.mp3
+test_data/*.json
+test_data/review.html
